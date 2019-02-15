@@ -22,17 +22,23 @@
  *  SOFTWARE.
  */
 
-#ifndef NODE_LOADER_H
-#define NODE_LOADER_H
+#ifndef SRM_IMPL_NODE_LOADER_H
+#define SRM_IMPL_NODE_LOADER_H
 
-#include <unordered_map>
+#include "node_util.h"
+
+#include <string>
+
+#include <tbb/concurrent_hash_map.h>
 
 namespace srm {
 
 class NodeLoader {
 public:
+    
 
 private:
+    tbb::concurrent_hash_map<std::string, NodeLibrary> objects_;
 };
 
 } // namespace srm
