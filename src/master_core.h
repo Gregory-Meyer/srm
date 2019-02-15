@@ -22,8 +22,8 @@
  *  SOFTWARE.
  */
 
-#ifndef MASTER_CORE_H
-#define MASTER_CORE_H
+#ifndef SRM_IMPL_MASTER_CORE_H
+#define SRM_IMPL_MASTER_CORE_H
 
 #include <srm/core.h>
 
