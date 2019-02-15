@@ -27,17 +27,23 @@
 
 #include <srm/core.h>
 
+#ifdef _WIN32
+#define SRM_SHARED_OBJECT_EXPORT __declspec(dllexport)
+#else
+#define SRM_SHARED_OBJECT_EXPORT
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void* srm_Node_create(SrmCore *core);
+SRM_SHARED_OBJECT_EXPORT void* srm_Node_create(SrmCore *core);
 
-void srm_Node_destroy(SrmCore *core, void *node);
+SRM_SHARED_OBJECT_EXPORT void srm_Node_destroy(SrmCore *core, void *node);
 
-void srm_Node_run(SrmCore *core, void *node);
+SRM_SHARED_OBJECT_EXPORT void srm_Node_run(SrmCore *core, void *node);
 
-void srm_Node_stop(SrmCore *core, void *node);
+SRM_SHARED_OBJECT_EXPORT void srm_Node_stop(SrmCore *core, void *node);
 
 #ifdef __cplusplus
 } // extern "C"
