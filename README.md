@@ -1,4 +1,4 @@
-# Shared object Robot Messaging library (SRM)
+# Shared-object Robot Messaging (SRM)
 
 ## Abstract
 
