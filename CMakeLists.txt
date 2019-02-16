@@ -14,7 +14,7 @@ include_directories(include src external/tbb/include)
 
 add_subdirectory(external/tbb)
 
-set(SRM_SOURCES src/hash_map.cpp src/main.cpp src/master_core.cpp src/node_loader.cpp)
+set(SRM_SOURCES src/err.cpp src/plat.cpp src/shared_obj.cpp)
 
 add_executable(srm ${SRM_SOURCES})
 target_link_libraries(srm tbb_static)
