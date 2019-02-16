@@ -54,7 +54,9 @@ public:
      *  FreeLibrary() on Windows.
      *
      *  @throws UnloadError If the managed shared object could not be
-     *                      unloaded.
+     *                      unloaded. However, the exception will be
+     *                      caught and printed using std::cerr if
+     *                      thrown.
      */
     ~SharedObj();
 
