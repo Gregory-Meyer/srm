@@ -1,8 +1,5 @@
 # Shared-object Robot Messaging (SRM)
 
-## Abstract
-
-
 ## Author
 
 SRM is authored by Gregory Meyer.
