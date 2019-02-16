@@ -26,6 +26,7 @@
 #define SRM_IMPL_SHARED_OBJ_H
 
 #include "err.h"
+#include "immobile.h"
 
 #include <memory>
 #include <system_error>
@@ -33,7 +34,7 @@
 namespace srm {
 
 /** SharedObj manages a dynamically loaded object. */
-class SharedObj {
+class SharedObj : Immobile {
 public:
     /**
      *  Opens a shared object.
