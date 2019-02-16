@@ -25,7 +25,7 @@
 #ifndef SRM_NODE_H
 #define SRM_NODE_H
 
-#include <srm/core.h>
+#include <srm/types.h>
 
 #ifdef _WIN32
 #define SRM_SHARED_OBJECT_EXPORT __declspec(dllexport)
@@ -37,13 +37,15 @@
 extern "C" {
 #endif
 
-SRM_SHARED_OBJECT_EXPORT void* srm_Node_create(SrmCore *core);
+struct SrmNodeVtbl {
+    int (*create_fn)(SrmCore *core, void **node);
+    int (*destroy_fn)(SrmCore *core, void *node);
+    int (*run_fn)(SrmCore *core, void *node);
+    int (*stop_fn)(SrmCore *core, void *node);
+    SrmStrView (*err_str_fn)(int err);
+};
 
-SRM_SHARED_OBJECT_EXPORT void srm_Node_destroy(SrmCore *core, void *node);
-
-SRM_SHARED_OBJECT_EXPORT void srm_Node_run(SrmCore *core, void *node);
-
-SRM_SHARED_OBJECT_EXPORT void srm_Node_stop(SrmCore *core, void *node);
+SRM_SHARED_OBJECT_EXPORT const SrmNodeVtbl* srm_Node_get_vtbl(void);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -22,20 +22,42 @@
  *  SOFTWARE.
  */
 
-#ifndef SRM_ERR_H
-#define SRM_ERR_H
+#ifndef SRM_TYPES_H
+#define SRM_TYPES_H
+
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef enum SrmErr {
-    SRM_OK,
-    SRM_NO_SUCH_TYPE,
-    SRM_OUT_OF_MEMORY
-} SrmErr;
+typedef int_least64_t SrmMsgType;
+typedef int_least64_t SrmWord;
+typedef ptrdiff_t SrmIndex;
 
-const char* srm_Err_to_string(int err);
+typedef struct SrmCore SrmCore;
+
+typedef struct SrmStrView SrmStrView;
+
+typedef struct SrmMsgSegment SrmMsgSegment;
+
+typedef struct SrmMsgSegmentView SrmMsgSegmentView;
+
+typedef struct SrmMsgView SrmMsgView;
+
+typedef struct SrmMsgAlloc SrmMsgAlloc;
+
+typedef struct SrmMsgAllocVtbl SrmMsgAllocVtbl;
+
+typedef int (*SrmSubscribeCallback)(SrmCore *core, SrmMsgView msg, void *arg);
+typedef int (*SrmPublishFn)(SrmCore *core, SrmMsgAlloc *alloc, void *arg);
+
+typedef struct SrmSubscriberParams SrmSubscribeParams;
+
+typedef struct SrmCoreVtbl SrmCoreVtbl;
+
+typedef struct SrmNodeVtbl SrmNodeVtbl;
 
 #ifdef __cplusplus
 } // extern "C"

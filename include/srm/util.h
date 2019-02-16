@@ -25,16 +25,16 @@
 #ifndef SRM_UTIL_H
 #define SRM_UTIL_H
 
-#include <stddef.h>
+#include <srm/types.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct SrmStrView {
+struct SrmStrView {
     const char *data;
-    ptrdiff_t len;
-} SrmStrView;
+    SrmIndex len;
+};
 
 #ifdef __cplusplus
 } // extern "C"

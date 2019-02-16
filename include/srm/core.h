@@ -27,6 +27,7 @@
 
 #include <srm/msg.h>
 #include <srm/util.h>
+#include <srm/types.h>
 
 #include <assert.h>
 
@@ -34,57 +35,59 @@
 extern "C" {
 #endif
 
-typedef int (*SrmSubscriberCallback)(void *arg, SrmMsgView message);
+struct SrmCore {
+    void *impl_ptr;
+    const SrmCoreVtbl *vtbl;
+};
 
-typedef struct SrmSubscriberParams {
-    SrmStrView type;
+struct SrmSubscriberParams {
+    SrmMsgType type;
     SrmStrView topic;
-    SrmSubscriberCallback callback;
+    SrmSubscribeCallback callback;
     void *arg;
-} SrmSubscribeParams;
+};
 
-typedef struct SrmCore {
-    void *impl;
-    int (*subscribe_fn)(void *core, const SrmSubscriberParams *params);
-    int (*alloc_msg_fn)(void *core, SrmMsg *message);
-    int (*dealloc_msg_fn)(void *core, SrmMsg *message);
-    int (*publish_fn)(void *core, SrmMsg *message);
-} SrmCore;
+struct SrmCoreVtbl {
+    int (*subscribe)(void *impl_ptr, SrmSubscriberParams params);
+    int (*publish)(void *impl_ptr, SrmPublishFn fn, SrmCore *core, void *arg);
+    SrmStrView (*err_to_str)(int err);
+};
 
-inline int srm_Core_subscribe(SrmCore *core, const SrmSubscriberParams *params) {
+inline int srm_Core_subscribe(SrmCore *core, SrmSubscriberParams params) {
     assert(core);
-    assert(params);
-    assert(params->callback);
-    assert(params->type.data);
-    assert(params->topic.data);
+    assert(core->impl_ptr);
+    assert(core->vtbl);
+    assert(core->vtbl->subscribe);
+    assert(core->vtbl->publish);
+    assert(core->vtbl->err_to_str);
+    assert(params.type & (SrmMsgType) 1 << 63);
+    assert(params.topic.data);
+    assert(params.callback);
 
-    return core->subscribe_fn(core->impl, params);
+    return core->vtbl->subscribe(core->impl_ptr, params);
 }
 
-inline int srm_Core_alloc_msg(SrmCore *core, SrmMsg *msg) {
+inline int srm_Core_publish(SrmCore *core, SrmPublishFn fn, void *arg) {
     assert(core);
-    assert(msg);
-    assert(msg->type.data);
+    assert(core->impl_ptr);
+    assert(core->vtbl);
+    assert(core->vtbl->subscribe);
+    assert(core->vtbl->publish);
+    assert(core->vtbl->err_to_str);
+    assert(fn);
 
-    return core->alloc_msg_fn(core->impl, msg);
+    return core->vtbl->publish(core->impl_ptr, fn, core, arg);
 }
 
-inline int srm_Core_dealloc_msg(SrmCore *core, SrmMsg *msg) {
+inline SrmStrView srm_Core_err_to_str(const SrmCore *core, int err) {
     assert(core);
-    assert(msg);
-    assert(msg->type.data);
+    assert(core->impl_ptr);
+    assert(core->vtbl);
+    assert(core->vtbl->subscribe);
+    assert(core->vtbl->publish);
+    assert(core->vtbl->err_to_str);
 
-    return core->dealloc_msg_fn(core->impl, msg);
-}
-
-inline int srm_Core_publish(SrmCore *core, SrmMsg *msg) {
-    assert(core);
-    assert(msg);
-    assert(msg->type.data);
-    assert(msg->topic.data);
-    assert(msg->data);
-
-    return core->publish_fn(core->impl, msg);
+    return core->vtbl->err_to_str(err);
 }
 
 #ifdef __cplusplus
