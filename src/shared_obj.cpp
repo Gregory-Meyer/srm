@@ -71,6 +71,8 @@ SharedObj::SharedObj(const char *filename) : obj_(LoadLibraryA(filename)) {
  *                      thrown.
  */
 SharedObj::~SharedObj() try {
+    assert(obj_);
+
     if (FreeLibrary(obj_)) {
         return;
     }
@@ -83,6 +85,7 @@ SharedObj::~SharedObj() try {
 }
 
 void* SharedObj::resolve_impl(const char *symbol) const {
+    assert(obj_);
     assert(symbol);
 
     void *const addr = GetProcAddress(obj_, symbol);
@@ -129,6 +132,8 @@ SharedObj::SharedObj(const char *filename)
  *                      thrown.
  */
 SharedObj::~SharedObj() try {
+    assert(obj_);
+
     if (dlclose(obj_) == 0) {
         return;
     }
@@ -141,6 +146,7 @@ SharedObj::~SharedObj() try {
 }
 
 void* SharedObj::resolve_impl(const char *symbol) const {
+    assert(obj_);
     assert(symbol);
 
     void *const addr = dlsym(obj_, symbol);
