@@ -26,6 +26,7 @@
 
 #include "plat.h"
 
+#include <cassert>
 #include <iostream>
 
 #ifdef SRM_WINDOWS
@@ -49,6 +50,8 @@ namespace srm {
  *  @throws LoadError If no shared object could be loaded.
  */
 SharedObj::SharedObj(const char *filename) : obj_(LoadLibraryA(filename)) {
+    assert(filename);
+
     if (obj_) {
         return;
     }
@@ -80,6 +83,8 @@ SharedObj::~SharedObj() try {
 }
 
 void* SharedObj::resolve_impl(const char *symbol) const {
+    assert(symbol);
+
     void *const addr = GetProcAddress(obj_, symbol);
 
     if (addr) {
@@ -103,6 +108,8 @@ void* SharedObj::resolve_impl(const char *symbol) const {
  */
 SharedObj::SharedObj(const char *filename)
 : obj_(dlopen(filename, RTLD_NOW | RTLD_LOCAL)) {
+    assert(filename);
+
     if (obj_) {
         return;
     }
@@ -134,6 +141,8 @@ SharedObj::~SharedObj() try {
 }
 
 void* SharedObj::resolve_impl(const char *symbol) const {
+    assert(symbol);
+
     void *const addr = dlsym(obj_, symbol);
 
     if (addr) {
