@@ -33,6 +33,8 @@ namespace srm {
  */
 class Immobile {
 public:
+    constexpr Immobile() noexcept = default;
+
     Immobile(const Immobile &other) = delete;
 
     Immobile(Immobile &&other) = delete;
