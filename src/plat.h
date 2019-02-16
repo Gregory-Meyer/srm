@@ -27,10 +27,11 @@
 
 #include <system_error>
 
-const std::error_category& platform_category() noexcept;
+std::system_error get_last_error() noexcept;
 
 #ifdef _WIN32
 #define SRM_WINDOWS
+const std::error_category& windows_category() noexcept;
 #elif defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))
 #define SRM_POSIX
 #else

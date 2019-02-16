@@ -24,14 +24,16 @@
 
 #include "plat.h"
 
+#ifdef SRM_WINDOWS
+#include <windows.h>
+#endif
+
 namespace srm {
 
 #ifdef SRM_WINDOWS
 
 class WindowsCategory : public std::error_category {
 public:
-    static_assert(std::is_same_v<LPSTR, char*>);
-
     virtual ~WindowsCategory() = default;
 
     const char* name() const noexcept override {
@@ -41,17 +43,21 @@ public:
     std::string message(int condition) const override {
         const auto err = static_cast<DWORD>(condition);
 
-        LPSTR as_string = nullptr;
+        char *as_string = nullptr;
 
         constexpr DWORD FLAGS = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
                                 | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_ALLOCATE_BUFFER;
-        FormatMessage(FLAGS, nullptr, err, 0, reinterpret_cast<LPSTR>(&as_string), 0, nullptr);
+        FormatMessage(FLAGS, nullptr, err, 0, reinterpret_cast<char*>(&as_string), 0, nullptr);
 
         return std::string(as_string);
     }
 };
 
-const std::error_category& platform_category() noexcept {
+std::system_error get_last_error() noexcept {
+    return std::system_error(static_cast<int>(GetLastError()), windows_category());
+}
+
+const std::error_category& windows_category() noexcept {
     static const WindowsCategory category;
 
     return category;
@@ -59,8 +65,8 @@ const std::error_category& platform_category() noexcept {
 
 #elif defined(SRM_POSIX)
 
-const std::error_category& platform_category() noexcept {
-    return std::generic_category();
+std::system_error get_last_error() noexcept {
+    return std::system_error(errno, std::generic_category());
 }
 
 #endif
