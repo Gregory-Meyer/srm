@@ -40,15 +40,13 @@ namespace srm {
 class Error : public std::exception {
 public:
     /**
-     *  Creates an Error with explanation string allocated on the free
-     *  store.
-     *
-     *  Forwards its argument to the constructor of std::string,
-     *  enabling construction from std::string_view, const char*,
-     *  or any other type explicitly convertible to std::string.
+     *  Creates an Error with string allocated from the free store.
      *
      *  @param what The reason for this error. Typically the namespaced
      *              function name that the error is being thrown from.
+     *              Perfect forwarded to the constructor of
+     *              std::string, so it must be explicitly convertible
+     *              to std::string.
      *
      *  @throws std::bad_alloc
      */
