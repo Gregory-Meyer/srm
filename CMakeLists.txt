@@ -10,7 +10,7 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-include_directories(include src)
+include_directories(include src external/tbb/include)
 
 add_subdirectory(external/tbb)
 
