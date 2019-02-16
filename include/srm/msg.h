@@ -51,52 +51,52 @@ struct SrmMsgView {
     SrmMsgType type;
 };
 
-struct SrmMsgAlloc {
+struct SrmMsgBuilder {
     void *impl_ptr;
-    const SrmMsgAllocVtbl *vtbl;
+    const SrmMsgBuilderVtbl *vtbl;
 };
 
-struct SrmMsgAllocVtbl {
+struct SrmMsgBuilderVtbl {
     int (*alloc_segment)(void *impl_ptr, SrmMsgSegment *segment);
     int (*dealloc_segment)(void *impl_ptr, SrmMsgSegment segment);
     SrmStrView (*err_to_str)(int err);
 };
 
-inline int srm_MsgAlloc_alloc_segment(SrmMsgAlloc *alloc, SrmMsgSegment *segment) {
-    assert(alloc);
-    assert(alloc->impl_ptr);
-    assert(alloc->vtbl);
-    assert(alloc->vtbl->alloc_segment);
-    assert(alloc->vtbl->dealloc_segment);
-    assert(alloc->vtbl->err_to_str);
+inline int srm_MsgBuilder_alloc_segment(SrmMsgBuilder *builder, SrmMsgSegment *segment) {
+    assert(builder);
+    assert(builder->impl_ptr);
+    assert(builder->vtbl);
+    assert(builder->vtbl->alloc_segment);
+    assert(builder->vtbl->dealloc_segment);
+    assert(builder->vtbl->err_to_str);
     assert(segment);
     assert(segment->len > 0);
 
-    return alloc->vtbl->alloc_segment(alloc->impl_ptr, segment);
+    return builder->vtbl->alloc_segment(builder->impl_ptr, segment);
 }
 
-inline int srm_MsgAlloc_dealloc_segment(SrmMsgAlloc *alloc, SrmMsgSegment segment) {
-    assert(alloc);
-    assert(alloc->impl_ptr);
-    assert(alloc->vtbl);
-    assert(alloc->vtbl->alloc_segment);
-    assert(alloc->vtbl->dealloc_segment);
-    assert(alloc->vtbl->err_to_str);
+inline int srm_MsgBuilder_dealloc_segment(SrmMsgBuilder *builder, SrmMsgSegment segment) {
+    assert(builder);
+    assert(builder->impl_ptr);
+    assert(builder->vtbl);
+    assert(builder->vtbl->alloc_segment);
+    assert(builder->vtbl->dealloc_segment);
+    assert(builder->vtbl->err_to_str);
     assert(segment.data);
     assert(segment.len > 0);
 
-    return alloc->vtbl->dealloc_segment(alloc->impl_ptr, segment);
+    return builder->vtbl->dealloc_segment(builder->impl_ptr, segment);
 }
 
-inline SrmStrView srm_MsgAlloc_err_to_str(const SrmMsgAlloc *alloc, int err) {
-    assert(alloc);
-    assert(alloc->impl_ptr);
-    assert(alloc->vtbl);
-    assert(alloc->vtbl->alloc_segment);
-    assert(alloc->vtbl->dealloc_segment);
-    assert(alloc->vtbl->err_to_str);
+inline SrmStrView srm_MsgBuilder_err_to_str(const SrmMsgBuilder *builder, int err) {
+    assert(builder);
+    assert(builder->impl_ptr);
+    assert(builder->vtbl);
+    assert(builder->vtbl->alloc_segment);
+    assert(builder->vtbl->dealloc_segment);
+    assert(builder->vtbl->err_to_str);
 
-    return alloc->vtbl->err_to_str(err);
+    return builder->vtbl->err_to_str(err);
 }
 
 #ifdef __cplusplus

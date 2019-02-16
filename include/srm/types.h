@@ -46,12 +46,12 @@ typedef struct SrmMsgSegmentView SrmMsgSegmentView;
 
 typedef struct SrmMsgView SrmMsgView;
 
-typedef struct SrmMsgAlloc SrmMsgAlloc;
+typedef struct SrmMsgBuilder SrmMsgBuilder;
 
-typedef struct SrmMsgAllocVtbl SrmMsgAllocVtbl;
+typedef struct SrmMsgBuilderVtbl SrmMsgBuilderVtbl;
 
 typedef int (*SrmSubscribeCallback)(SrmCore *core, SrmMsgView msg, void *arg);
-typedef int (*SrmPublishFn)(SrmCore *core, SrmMsgAlloc *alloc, void *arg);
+typedef int (*SrmPublishFn)(SrmCore *core, SrmMsgBuilder *builder, void *arg);
 
 typedef struct SrmSubscriberParams SrmSubscribeParams;
 
