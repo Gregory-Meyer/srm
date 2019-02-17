@@ -37,12 +37,25 @@ static_assert(sizeof(SrmWord) == sizeof(capnp::word) && alignof(SrmWord) == alig
 
 namespace srm {
 
+/** MsgBuilder allocates cache-aligned message segments. */
 class MsgBuilder : public capnp::MessageBuilder {
 public:
     virtual ~MsgBuilder() = default;
 
+    /**
+     *  @param minimum_size The minimum number of words to allocate.
+     *                      The allocated block will round this up to
+     *                      the nearest multiple of 16 words (128
+     *                      bytes). Must be positive.
+     *  @returns A segment of memory that is cache-aligned and a
+     *           multiple of the cache line size in length.
+     */
     kj::ArrayPtr<capnp::word> allocateSegment(capnp::uint minimum_size) override;
 
+    /**
+     *  @returns An SrmMsgBuilder suitable for use by publishing
+     *           subroutines. Its lifetime is tied to this MsgBuilder.
+     */
     SrmMsgBuilder as_builder() noexcept;
 
 private:
