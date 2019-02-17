@@ -24,8 +24,13 @@
 
 #include "master_core.h"
 
+#include "msg_builder.h"
+
 #include <cassert>
+#include <memory>
 #include <tuple>
+
+#include <tbb/parallel_for.h>
 
 namespace srm {
 
@@ -42,6 +47,42 @@ void MasterCore::subscribe(SrmSubscriberParams params) {
     SubscriberTable::accessor callbacks;
     subscribers_.insert(callbacks, key);
     callbacks->second.push_back(Callback(params.callback, params.arg));
+}
+
+static SrmMsgView as_msg_view(capnp::MessageBuilder &builder, SrmMsgType type) {
+    auto segments = builder.getSegmentsForOutput();
+
+    return {
+        reinterpret_cast<const SrmMsgSegmentView*>(segments.begin()),
+        static_cast<SrmIndex>(segments.end() - segments.begin()),
+        type
+    };
+}
+
+void MasterCore::publish(SrmPublishParams params) {
+    auto builder_ptr = std::make_shared<MsgBuilder>();
+
+    params.fn(as_core(), builder_ptr->as_builder(), params.arg);
+
+    const SrmMsgView msg_view = as_msg_view(*builder_ptr, params.type);
+    SubscriptionKey key(as_string(params.topic), params.type);
+
+    arena_.enqueue([this, builder_ptr = std::move(builder_ptr), key = std::move(key), msg_view] {
+        SubscriberTable::const_accessor callbacks;
+
+        if (!subscribers_.find(callbacks, key)) {
+            // no callbacks for this topic+msg type...
+            return;
+        }
+
+        // execute each callback in parallel
+        tbb::parallel_for(
+            callbacks->second.range(),
+            [this, msg_view](const Callback &cb) {
+                cb(as_core(), msg_view);
+            }
+        );
+    });
 }
 
 static int subscribe_entry(void *impl_ptr, SrmSubscriberParams params) noexcept {
@@ -62,7 +103,7 @@ static SrmStrView err_to_str_entry(int err) noexcept {
     return { str.data(), static_cast<SrmIndex>(str.size()) };
 }
 
-const SrmCoreVtbl& MasterCore::vtbl() noexcept {
+static const SrmCoreVtbl& get_vtbl() noexcept {
     static const SrmCoreVtbl vtbl = {
         &subscribe_entry,
         &publish_entry,
@@ -71,5 +112,9 @@ const SrmCoreVtbl& MasterCore::vtbl() noexcept {
 
     return vtbl;
 };
+
+SrmCore MasterCore::as_core() noexcept {
+    return {this, &get_vtbl()};
+}
 
 } // namespace srm

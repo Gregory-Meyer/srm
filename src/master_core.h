@@ -32,6 +32,7 @@
 
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_vector.h>
+#include <tbb/task_arena.h>
 
 namespace srm {
 
@@ -41,7 +42,7 @@ public:
 
     void publish(SrmPublishParams params);
 
-    static const SrmCoreVtbl& vtbl() noexcept;
+    SrmCore as_core() noexcept;
 
     static std::string_view err_to_str(int err) noexcept;
 
@@ -50,7 +51,7 @@ private:
     public:
         constexpr Callback(SrmSubscribeCallback cb, void *arg) noexcept : fn_(cb), arg_(arg) { }
 
-        int operator()(SrmCore *core, SrmMsgView msg) noexcept {
+        int operator()(SrmCore core, SrmMsgView msg) const noexcept {
             return fn_(core, msg, arg_);
         }
 
@@ -64,6 +65,7 @@ private:
     using SubscriberTable = tbb::concurrent_hash_map<SubscriptionKey, CallbackVec>;
 
     SubscriberTable subscribers_;
+    tbb::task_arena arena_;
 };
 
 } // namespace srm
