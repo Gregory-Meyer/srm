@@ -60,43 +60,40 @@ struct SrmCoreVtbl {
     SrmStrView (*err_to_str)(int err);
 };
 
-inline int srm_Core_subscribe(SrmCore *core, SrmSubscriberParams params) {
-    assert(core);
-    assert(core->impl_ptr);
-    assert(core->vtbl);
-    assert(core->vtbl->subscribe);
-    assert(core->vtbl->publish);
-    assert(core->vtbl->err_to_str);
+inline int srm_Core_subscribe(SrmCore core, SrmSubscriberParams params) {
+    assert(core.impl_ptr);
+    assert(core.vtbl);
+    assert(core.vtbl->subscribe);
+    assert(core.vtbl->publish);
+    assert(core.vtbl->err_to_str);
     assert(params.type & (SrmMsgType) 1 << 63);
     assert(params.topic.data);
     assert(params.callback);
 
-    return core->vtbl->subscribe(core->impl_ptr, params);
+    return core.vtbl->subscribe(core.impl_ptr, params);
 }
 
-inline int srm_Core_publish(SrmCore *core, SrmPublishParams params) {
-    assert(core);
-    assert(core->impl_ptr);
-    assert(core->vtbl);
-    assert(core->vtbl->subscribe);
-    assert(core->vtbl->publish);
-    assert(core->vtbl->err_to_str);
+inline int srm_Core_publish(SrmCore core, SrmPublishParams params) {
+    assert(core.impl_ptr);
+    assert(core.vtbl);
+    assert(core.vtbl->subscribe);
+    assert(core.vtbl->publish);
+    assert(core.vtbl->err_to_str);
     assert(params.type & (SrmMsgType) 1 << 63);
     assert(params.topic.data);
     assert(params.fn);
 
-    return core->vtbl->publish(core->impl_ptr, params);
+    return core.vtbl->publish(core.impl_ptr, params);
 }
 
-inline SrmStrView srm_Core_err_to_str(const SrmCore *core, int err) {
-    assert(core);
-    assert(core->impl_ptr);
-    assert(core->vtbl);
-    assert(core->vtbl->subscribe);
-    assert(core->vtbl->publish);
-    assert(core->vtbl->err_to_str);
+inline SrmStrView srm_Core_err_to_str(SrmCore core, int err) {
+    assert(core.impl_ptr);
+    assert(core.vtbl);
+    assert(core.vtbl->subscribe);
+    assert(core.vtbl->publish);
+    assert(core.vtbl->err_to_str);
 
-    return core->vtbl->err_to_str(err);
+    return core.vtbl->err_to_str(err);
 }
 
 #ifdef __cplusplus

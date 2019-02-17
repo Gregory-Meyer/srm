@@ -34,7 +34,7 @@ extern "C" {
 
 typedef int_least64_t SrmMsgType;
 typedef int_least64_t SrmWord;
-typedef ptrdiff_t SrmIndex;
+typedef size_t SrmIndex;
 
 typedef struct SrmCore SrmCore;
 
@@ -50,8 +50,8 @@ typedef struct SrmMsgBuilder SrmMsgBuilder;
 
 typedef struct SrmMsgBuilderVtbl SrmMsgBuilderVtbl;
 
-typedef int (*SrmSubscribeCallback)(SrmCore *core, SrmMsgView msg, void *arg);
-typedef int (*SrmPublishFn)(SrmCore *core, SrmMsgBuilder *builder, void *arg);
+typedef int (*SrmSubscribeCallback)(SrmCore core, SrmMsgView msg, void *arg);
+typedef int (*SrmPublishFn)(SrmCore core, SrmMsgBuilder builder, void *arg);
 
 typedef struct SrmSubscriberParams SrmSubscribeParams;
 
