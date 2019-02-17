@@ -26,6 +26,7 @@
 #define SRM_IMPL_WORD_ARR_H
 
 #include <cstddef>
+#include <utility>
 
 #include <capnp/common.h>
 
@@ -53,7 +54,22 @@ public:
      */
     explicit WordArr(std::size_t num_lines);
 
+    /** Creates a WordArr by moving resources from another WordArr. */
+    constexpr WordArr(WordArr &&other) noexcept : data_(other.data_), size_(other.size_) {
+        other.data_ = nullptr;
+        other.size_ = 0;
+    }
+
+    /** Deallocates any memory owned by this WordArr. */
     ~WordArr();
+
+    /** Exchanges this WordArr's resources with another. */
+    WordArr& operator=(WordArr &&other) noexcept {
+        std::swap(data_, other.data_);
+        std::swap(size_, other.size_);
+
+        return *this;
+    }
 
     /** @returns A mutable pointer to this WordArr's array. */
     constexpr capnp::word* data() noexcept {

@@ -41,12 +41,16 @@ WordArr::WordArr(std::size_t num_lines)
     std::memset(data_, 0, num_lines * LINE_SIZE);
 }
 
+/** Deallocates any memory owned by this WordArr. */
 WordArr::~WordArr() {
-    assert(data_);
-    assert(size_ > 0);
-    assert(size_ % LINE_SIZE == 0);
+    if (data_) {
+        assert(size_ > 0);
+        assert(size_ % LINE_SIZE == 0);
 
-    deallocate(data_, size_);
+        deallocate(data_, size_);
+    } else {
+        assert(size_ == 0);
+    }
 }
 
 } // namespace srm
