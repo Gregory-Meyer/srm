@@ -26,7 +26,6 @@
 #define SRM_IMPL_SHARED_OBJ_H
 
 #include "err.h"
-#include "immobile.h"
 
 #include <memory>
 #include <system_error>
@@ -34,7 +33,7 @@
 namespace srm {
 
 /** SharedObj manages a dynamically loaded object. */
-class SharedObj : Immobile {
+class SharedObj {
 public:
     /**
      *  Opens a shared object.
@@ -47,6 +46,9 @@ public:
      *  @throws LoadError If no shared object could be loaded.
      */
     explicit SharedObj(const char *filename);
+
+    /** @param other After invocation, will be unusable. */
+    SharedObj(SharedObj &&other) noexcept;
 
     /**
      *  Closes the owned shared object.
@@ -61,6 +63,9 @@ public:
      */
     ~SharedObj();
 
+    /** @param other Will be swapped with *this. */
+    SharedObj& operator=(SharedObj &&other) noexcept;
+
     /**
      *  Resolves a symbol from the owned shared object.
      *
@@ -74,6 +79,8 @@ public:
      */
     template <typename S>
     S& resolve(const char *symbol) const {
+        assert(obj_);
+
         return *reinterpret_cast<S*>(resolve_impl(symbol));
     }
 

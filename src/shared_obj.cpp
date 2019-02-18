@@ -28,6 +28,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <utility>
 
 #ifdef SRM_WINDOWS
 #include <windows.h>
@@ -71,7 +72,9 @@ SharedObj::SharedObj(const char *filename) : obj_(LoadLibraryA(filename)) {
  *                      thrown.
  */
 SharedObj::~SharedObj() try {
-    assert(obj_);
+    if (!obj_) {
+        return;
+    }
 
     if (FreeLibrary(obj_)) {
         return;
@@ -132,7 +135,9 @@ SharedObj::SharedObj(const char *filename)
  *                      thrown.
  */
 SharedObj::~SharedObj() try {
-    assert(obj_);
+    if (!obj_) {
+        return;
+    }
 
     if (dlclose(obj_) == 0) {
         return;
@@ -159,5 +164,17 @@ void* SharedObj::resolve_impl(const char *symbol) const {
 }
 
 #endif
+
+/** @param other After invocation, will be unusable. */
+SharedObj::SharedObj(SharedObj &&other) noexcept : obj_(other.obj_) {
+    other.obj_ = nullptr;
+}
+
+/** @param other Will be swapped with *this. */
+SharedObj& SharedObj::operator=(SharedObj &&other) noexcept {
+    std::swap(obj_, other.obj_);
+
+    return *this;
+}
 
 } // namespace srm

@@ -25,7 +25,6 @@
 #ifndef SRM_IMPL_NODE_PLUGIN_H
 #define SRM_IMPL_NODE_PLUGIN_H
 
-#include "immobile.h"
 #include "shared_obj.h"
 #include <srm/node.h>
 
@@ -35,7 +34,7 @@ namespace srm {
  *  NodePlugin manages a Node plugin and ensures that its vtable lives
  *  as long as the managed object.
  */
-class NodePlugin : Immobile {
+class NodePlugin {
 public:
     /**
      *  Loads a plugin from the specified path according to the OS'
