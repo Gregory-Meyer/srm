@@ -182,6 +182,15 @@ private:
             return reinterpret_cast<const value_type&>(storage_);
         }
 
+        bool clear() noexcept {
+            if (dib_ == EMPTY) {
+                return false;
+            }
+
+            reinterpret_cast<value_type*>(storage_).value_type::~value_type();
+            dib_ = EMPTY;
+        }
+
     private:
         static inline constexpr unsigned char EMPTY = std::numeric_limits<unsigned char>::max();
 
@@ -194,7 +203,19 @@ private:
     }
 
     void grow() {
+        HashTable grown;
+        grown.buckets_.resize(buckets_.size() * 2);
 
+        for (auto &bucket : buckets_) {
+            value_type *maybe_value = bucket.value();
+
+            if (maybe_value) {
+                grown.insert(std::move(maybe_value->first), std::move(maybe_value->second));
+                bucket.clear();
+            }
+        }
+
+        *this = grown;
     }
 
     T* find(std::string_view key, std::size_t hash) noexcept {
@@ -244,12 +265,16 @@ private:
                     auto &bucket = buckets_[modulo_index(starting_index + j)];
 
                     if (bucket.emplace_if_empty(swapped_dib, std::move(swapped)).second) {
+                        ++size_;
+
                         return {std::get<0>(result), true};
                     }
                 }
 
                 __builtin_unreachable();
             } else if (std::get<1>(result)) {
+                ++size_;
+
                 return {std::get<0>(result), true};
             }
         }
@@ -259,7 +284,7 @@ private:
 
     using Alloc = typename std::allocator_traits<A>::template rebind_alloc<Bucket>;
 
-    std::vector<Bucket, Alloc> buckets_;
+    std::vector<Bucket, Alloc> buckets_ = std::vector<Bucket, Alloc>(8);
     std::size_t size_ = 0;
 };
 
