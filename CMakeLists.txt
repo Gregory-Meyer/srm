@@ -14,8 +14,9 @@ include_directories(include src external/tbb/include)
 
 add_subdirectory(external/tbb)
 
-set(SRM_SOURCES src/err.cpp src/immobile.cpp src/node_plugin.cpp src/plat.cpp
-                src/shared_obj.cpp src/word_arr.cpp)
+set(SRM_SOURCES src/err.cpp src/expected.cpp src/immobile.cpp
+                src/node_plugin.cpp src/plat.cpp src/shared_obj.cpp
+                src/word_arr.cpp)
 
 add_executable(srm ${SRM_SOURCES})
 target_link_libraries(srm tbb_static)
