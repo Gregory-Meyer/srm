@@ -54,6 +54,7 @@ typedef int (*SrmSubscribeCallback)(SrmCore core, SrmMsgView msg, void *arg);
 typedef int (*SrmPublishFn)(SrmCore core, SrmMsgBuilder builder, void *arg);
 
 typedef struct SrmSubscriberParams SrmSubscribeParams;
+typedef struct SrmPublishParams SrmPublishParams;
 
 typedef struct SrmCoreVtbl SrmCoreVtbl;
 
