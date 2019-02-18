@@ -102,7 +102,7 @@ public:
         int
     > = 0>
     SharedObjError(S &&what, E &&nested)
-    : Error(std::make_shared<std::string>(std::forward<S>(what))),
+    : Error(std::forward<S>(what)),
       nested_(std::make_shared<std::decay_t<E>>(std::forward<E>(nested))) { }
 
     virtual ~SharedObjError() = default;
