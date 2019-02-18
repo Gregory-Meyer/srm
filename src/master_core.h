@@ -25,10 +25,14 @@
 #ifndef SRM_IMPL_MASTER_CORE_H
 #define SRM_IMPL_MASTER_CORE_H
 
+#include "err.h"
 #include <srm/core.h>
 
+#include <atomic>
 #include <string_view>
+#include <thread>
 #include <utility>
+#include <vector>
 
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_vector.h>
@@ -36,6 +40,12 @@
 
 namespace srm {
 
+/**
+ *  MasterCore is an in-memory SRM core that statically loads nodes.
+ *
+ *  Nodes are loaded upon construction and their lifetime is until the
+ *  core is killed.
+ */
 class MasterCore {
 public:
     void subscribe(SrmSubscriberParams params);
@@ -44,9 +54,9 @@ public:
 
     SrmCore as_core() noexcept;
 
-    static std::string_view err_to_str(int err) noexcept;
-
 private:
+    void throw_if_shutting_down(std::string_view what) const;
+
     class Callback {
     public:
         constexpr Callback(SrmSubscribeCallback cb, void *arg) noexcept : fn_(cb), arg_(arg) { }
@@ -66,6 +76,24 @@ private:
 
     SubscriberTable subscribers_;
     tbb::task_arena arena_;
+    std::atomic<bool> shutting_down_;
+};
+
+/**
+ *  Thrown when an operation is launched while the core is shutting
+ *  down.
+ */
+class CoreShuttingDown : public Error {
+public:
+    /**
+     *  @param what Must be explicitly convertible to std::string.
+     *
+     *  @throws std::bad_alloc
+     */
+    template <typename S, std::enable_if_t<std::is_constructible_v<std::string, S>, int> = 0>
+    explicit CoreShuttingDown(S &&what) : Error(std::forward<S>(what)) { }
+
+    virtual ~CoreShuttingDown() = default;
 };
 
 } // namespace srm
