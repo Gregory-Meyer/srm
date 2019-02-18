@@ -134,9 +134,19 @@ public:
         return std::holds_alternative<T>(state_);
     }
 
+    /** @returns True if this Expected holds T. */
+    constexpr explicit operator bool() const noexcept {
+        return has_value();
+    }
+
     /** @returns True if this Expected holds std::error_code. */
     constexpr bool has_error() const noexcept {
         return std::holds_alternative<std::error_code>(state_);
+    }
+
+    /** @returns True if this Expected holds std::error_code. */
+    constexpr bool operator!() const noexcept {
+        return has_error();
     }
 
     /**
