@@ -39,17 +39,9 @@ use parking_lot::RwLock;
 use rayon::prelude::*;
 use lock_api::RwLockUpgradableReadGuard;
 
+pub mod core;
 pub mod ffi;
 pub mod plugin;
-
-pub struct Core {
-    loader: PluginLoader,
-}
-
-struct PluginLoader {
-    paths: Vec<PathBuf>,
-    plugins: HashMap<String, Arc<Library>, FnvBuildHasher>,
-}
 
 pub struct Channel {
     name: String,
