@@ -22,72 +22,120 @@
 
 use super::*;
 
-use std::ptr;
+use std::{marker::PhantomData, ptr, slice};
 
 use libc::c_void;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct MsgSegment {
+#[derive(Debug)]
+pub struct MsgSegment<'a> {
     data: *mut Word,
     len: Index,
+    phantom: PhantomData<&'a mut Word>,
+}
+
+impl<'a> MsgSegment<'a> {
+    pub unsafe fn as_slice(self) -> Option<&'a mut [Word]> {
+        if self.data.is_null() {
+            assert_eq!(self.len, 0);
+
+            None
+        } else {
+            assert!(self.len > 0);
+
+            Some(slice::from_raw_parts_mut(self.data, self.len as usize))
+        }
+    }
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct MsgSegmentView {
+#[derive(Debug)]
+pub struct MsgSegmentView<'a> {
     data: *const Word,
     len: Index,
+    phantom: PhantomData<&'a Word>,
+}
+
+impl<'a> MsgSegmentView<'a> {
+    pub unsafe fn as_slice(self) -> Option<&'a [Word]> {
+        if self.data.is_null() {
+            assert_eq!(self.len, 0);
+
+            None
+        } else {
+            assert!(self.len > 0);
+
+            Some(slice::from_raw_parts(self.data, self.len as usize))
+        }
+    }
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct MsgView {
-    segments: *const MsgSegmentView,
+pub struct MsgView<'a> {
+    segments: *const MsgSegmentView<'a>,
     num_segments: Index,
     msg_type: MsgType,
+    phantom: PhantomData<&'a MsgSegmentView<'a>>,
+}
+
+impl<'a> MsgView<'a> {
+    pub unsafe fn as_slice(self) -> Option<(MsgType, &'a [MsgSegmentView<'a>])> {
+        if self.segments.is_null() {
+            assert_eq!(self.num_segments, 0);
+
+            None
+        } else {
+            assert!(self.num_segments > 0);
+
+            Some((self.msg_type, slice::from_raw_parts(self.segments, self.num_segments as usize)))
+        }
+    }
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct MsgBuilder {
+#[derive(Debug)]
+pub struct MsgBuilder<'a> {
     impl_ptr: *mut c_void,
-    vptr: *const MsgBuilderVtbl,
+    vptr: *const MsgBuilderVtbl<'a>,
+    phantom: PhantomData<(&'a mut c_void, &'a MsgBuilderVtbl<'a>)>,
 }
 
-impl MsgBuilder {
-    pub unsafe fn alloc_segment(self, min_len: Index) -> Result<MsgSegment, (c_int, StrView)> {
+impl<'a> MsgBuilder<'a> {
+    pub unsafe fn alloc_segment(&'a mut self, min_len: Index) -> Result<'a, &'a mut [Word]> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
         assert!(min_len > 0);
 
-        let mut segment = MsgSegment{ data: ptr::null_mut(), len: min_len };
-
+        let mut segment = MsgSegment{ data: ptr::null_mut(), len: min_len, phantom: PhantomData };
         let err = ((*self.vptr).alloc_segment.unwrap())(self.impl_ptr, &mut segment);
 
-        if err != 0 {
-            Err((err, self.get_err_msg(err)))
-        } else {
-            Ok(segment)
+        match self.get_err_msg(err) {
+            None => Ok(segment.as_slice().unwrap()),
+            Some(e) => Err(ForeignError::new(err, e)),
         }
     }
 
-    pub unsafe fn get_err_msg(self, err: c_int) -> StrView {
+    pub unsafe fn get_err_msg(&'a self, err: c_int) -> Option<&'a str> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        ((*self.vptr).get_err_msg.unwrap())(self.impl_ptr, err)
+        if err == 0 {
+            None
+        } else {
+            Some(((*self.vptr).get_err_msg.unwrap())(self.impl_ptr, err).as_str().unwrap())
+        }
     }
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct MsgBuilderVtbl {
+#[derive(Copy, Clone)]
+pub struct MsgBuilderVtbl<'a> {
     alloc_segment: Option<extern "C" fn(*mut c_void, *mut MsgSegment) -> c_int>,
-    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
+    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView<'a>>,
 }
 
-impl MsgBuilderVtbl {
+impl<'a> MsgBuilderVtbl<'a> {
     pub fn is_non_null(self) -> bool {
         self.alloc_segment.is_some() && self.get_err_msg.is_some()
     }

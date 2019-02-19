@@ -20,24 +20,28 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use libc::{c_int, c_void, ptrdiff_t};
+use std::{error::Error, fmt::{Display, Formatter, Result}};
 
-pub use capnp::Word;
+use libc::c_int;
 
-pub type MsgType = u64;
-pub type Index = ptrdiff_t;
-pub type SubscribeCallback = extern "C" fn(Core, MsgView, *mut c_void) -> c_int;
-pub type PublishFn = extern "C" fn(Core, MsgBuilder, *mut c_void) -> c_int;
-pub type Result<'a, T> = std::result::Result<T, ForeignError<'a>>;
+#[derive(Debug, Copy, Clone)]
+pub struct ForeignError<'a> {
+    code: c_int,
+    description: &'a str,
+}
 
-pub mod core;
-pub mod foreign_error;
-pub mod msg;
-pub mod node;
-pub mod util;
+impl<'a> ForeignError<'a> {
+    pub fn new(code: c_int, description: &'a str) -> ForeignError<'a> {
+        assert!(code != 0);
 
-pub use self::core::*;
-pub use self::foreign_error::*;
-pub use self::msg::*;
-pub use self::node::*;
-pub use self::util::*;
+        ForeignError{ code, description }
+    }
+}
+
+impl<'a> Error for ForeignError<'a> { }
+
+impl<'a> Display for ForeignError<'a> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{} ({})", self.description, self.code)
+    }
+}

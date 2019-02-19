@@ -37,10 +37,10 @@ use capnp::{message::ReaderSegments, serialize::OwnedSegments};
 use fnv::FnvBuildHasher;
 use parking_lot::RwLock;
 use rayon::prelude::*;
-use libloading::{Library, Symbol};
 use lock_api::RwLockUpgradableReadGuard;
 
 pub mod ffi;
+pub mod plugin;
 
 pub struct Core {
     loader: PluginLoader,

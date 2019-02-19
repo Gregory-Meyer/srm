@@ -22,17 +22,20 @@
 
 use std::{slice, str};
 
+use std::marker::PhantomData;
+
 use libc::{c_char, ptrdiff_t};
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct StrView {
+#[derive(Debug)]
+pub struct StrView<'a> {
     data: *const c_char,
     len: ptrdiff_t,
+    phantom: PhantomData<&'a c_char>,
 }
 
-impl<'a> StrView {
-    pub unsafe fn as_str(self) -> Option<&'a str> {
+impl<'a> StrView<'a> {
+    pub unsafe fn into_str(self) -> Option<&'a str> {
         if self.data.is_null() {
             assert!(self.len == 0);
 
@@ -44,6 +47,12 @@ impl<'a> StrView {
 
             Some(str::from_utf8(&slice).unwrap())
         }
+    }
 
+    pub fn from_str(s: &'a str) -> StrView<'a> {
+        let bytes = s.as_bytes();
+
+        StrView{ data: bytes.as_ptr() as *const c_char, len: s.len() as ptrdiff_t,
+                 phantom: PhantomData }
     }
 }
