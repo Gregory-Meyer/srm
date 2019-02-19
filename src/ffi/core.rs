@@ -24,19 +24,16 @@ use super::*;
 
 use std::ptr;
 
-use std::marker::PhantomData;
-
 use libc::{c_int, c_void};
 
 #[repr(C)]
-#[derive(Debug)]
-pub struct Core<'a> {
+#[derive(Copy, Clone, Debug)]
+pub struct Core {
     impl_ptr: *mut c_void,
-    vptr: *const CoreVtbl<'a>,
-    phantom: PhantomData<(&'a mut c_void, CoreVtbl<'a>)>,
+    vptr: *const CoreVtbl,
 }
 
-impl<'a> Core<'a> {
+impl<'a> Core {
     pub unsafe fn get_type(&'a self) -> &'a str {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
@@ -50,8 +47,7 @@ impl<'a> Core<'a> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        let mut publisher = Publisher{ impl_ptr: ptr::null_mut(), vptr: ptr::null(),
-                                       phantom: PhantomData };
+        let mut publisher = Publisher{ impl_ptr: ptr::null_mut(), vptr: ptr::null() };
         let err = ((*self.vptr).advertise.unwrap())(self.impl_ptr, params, &mut publisher);
 
         match self.get_err_msg(err) {
@@ -64,8 +60,7 @@ impl<'a> Core<'a> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        let mut subscriber = Subscriber{ impl_ptr: ptr::null_mut(), vptr: ptr::null(),
-                                         phantom: PhantomData };
+        let mut subscriber = Subscriber{ impl_ptr: ptr::null_mut(), vptr: ptr::null() };
         let err = ((*self.vptr).subscribe.unwrap())(self.impl_ptr, params, &mut subscriber);
 
         match self.get_err_msg(err) {
@@ -87,22 +82,21 @@ impl<'a> Core<'a> {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-pub struct Publisher<'a> {
+#[derive(Copy, Clone, Debug)]
+pub struct Publisher {
     impl_ptr: *mut c_void,
-    vptr: *const PublisherVtbl<'a>,
-    phantom: PhantomData<(&'a mut c_void, PublisherVtbl<'a>)>,
+    vptr: *const PublisherVtbl,
 }
 
-impl<'a> Publisher<'a> {
-    pub unsafe fn get_channel_name(&'a self) -> &'a str {
+impl<'a> Publisher {
+    pub unsafe fn get_channel_name(&self) -> &'a str {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
         ((*self.vptr).get_channel_name.unwrap())(self.impl_ptr).into_str().unwrap()
     }
 
-    pub unsafe fn get_channel_type(&'a self) -> MsgType {
+    pub unsafe fn get_channel_type(&self) -> MsgType {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
@@ -147,29 +141,28 @@ impl<'a> Publisher<'a> {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-pub struct Subscriber<'a> {
+#[derive(Copy, Clone, Debug)]
+pub struct Subscriber {
     impl_ptr: *mut c_void,
-    vptr: *const SubscriberVtbl<'a>,
-    phantom: PhantomData<(&'a mut c_void, SubscriberVtbl<'a>)>,
+    vptr: *const SubscriberVtbl,
 }
 
-impl<'a> Subscriber<'a> {
-    pub unsafe fn get_channel_name(&'a self) -> &'a str {
+impl<'a> Subscriber {
+    pub unsafe fn get_channel_name(&self) -> &'a str {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
         ((*self.vptr).get_channel_name.unwrap())(self.impl_ptr).into_str().unwrap()
     }
 
-    pub unsafe fn get_channel_type(&'a self) -> MsgType {
+    pub unsafe fn get_channel_type(&self) -> MsgType {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
         ((*self.vptr).get_channel_type.unwrap())(self.impl_ptr)
     }
 
-    pub unsafe fn disconnect(&'a mut self) -> Result<'a, ()> {
+    pub unsafe fn disconnect(&mut self) -> Result<'a, ()> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
@@ -181,7 +174,7 @@ impl<'a> Subscriber<'a> {
         }
     }
 
-    pub unsafe fn get_err_msg(&'a self, err: c_int) -> Option<&'a str> {
+    pub unsafe fn get_err_msg(&self, err: c_int) -> Option<&'a str> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
@@ -194,28 +187,28 @@ impl<'a> Subscriber<'a> {
 }
 
 #[repr(C)]
-pub struct SubscribeParams<'a> {
+pub struct SubscribeParams {
     msg_type: MsgType,
-    topic: StrView<'a>,
+    topic: StrView,
     callback: SubscribeCallback,
     arg: *mut c_void,
 }
 
 #[repr(C)]
-pub struct AdvertiseParams<'a> {
+pub struct AdvertiseParams {
     msg_type: MsgType,
-    topic: StrView<'a>,
+    topic: StrView,
 }
 
 #[repr(C)]
-pub struct CoreVtbl<'a> {
-    get_type: Option<extern "C" fn(*const c_void) -> StrView<'a>>,
-    subscribe: Option<extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber) -> c_int>,
-    advertise: Option<extern "C" fn(*mut c_void, AdvertiseParams, *mut Publisher) -> c_int>,
-    get_err_msg: Option<extern "C" fn(*mut c_void, c_int) -> StrView<'a>>,
+pub struct CoreVtbl {
+    pub get_type: Option<extern "C" fn(*const c_void) -> StrView>,
+    pub subscribe: Option<extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber) -> c_int>,
+    pub advertise: Option<extern "C" fn(*mut c_void, AdvertiseParams, *mut Publisher) -> c_int>,
+    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
 }
 
-impl<'a> CoreVtbl<'a> {
+impl CoreVtbl {
     pub fn is_non_null(self) -> bool {
         self.get_type.is_some() && self.subscribe.is_some()
             && self.advertise.is_some() && self.get_err_msg.is_some()
@@ -224,15 +217,15 @@ impl<'a> CoreVtbl<'a> {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct PublisherVtbl<'a> {
-    get_channel_name: Option<extern "C" fn(*const c_void) -> StrView<'a>>,
-    get_channel_type: Option<extern "C" fn(*const c_void) -> MsgType>,
-    publish: Option<extern "C" fn(*mut c_void, PublishFn, *mut c_void) -> c_int>,
-    disconnect: Option<extern "C" fn(*mut c_void) -> c_int>,
-    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView<'a>>,
+pub struct PublisherVtbl {
+    pub get_channel_name: Option<extern "C" fn(*const c_void) -> StrView>,
+    pub get_channel_type: Option<extern "C" fn(*const c_void) -> MsgType>,
+    pub publish: Option<extern "C" fn(*mut c_void, PublishFn, *mut c_void) -> c_int>,
+    pub disconnect: Option<extern "C" fn(*mut c_void) -> c_int>,
+    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
 }
 
-impl<'a> PublisherVtbl<'a> {
+impl PublisherVtbl {
     pub fn is_non_null(self) -> bool {
         self.get_channel_name.is_some() && self.get_channel_type.is_some()
             && self.publish.is_some() && self.disconnect.is_some() && self.get_err_msg.is_some()
@@ -241,14 +234,14 @@ impl<'a> PublisherVtbl<'a> {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct SubscriberVtbl<'a> {
-    get_channel_name: Option<extern "C" fn(*const c_void) -> StrView<'a>>,
-    get_channel_type: Option<extern "C" fn(*const c_void) -> u64>,
-    disconnect: Option<extern "C" fn(*mut c_void) -> c_int>,
-    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView<'a>>,
+pub struct SubscriberVtbl {
+    pub get_channel_name: Option<extern "C" fn(*const c_void) -> StrView>,
+    pub get_channel_type: Option<extern "C" fn(*const c_void) -> u64>,
+    pub disconnect: Option<extern "C" fn(*mut c_void) -> c_int>,
+    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
 }
 
-impl<'a> SubscriberVtbl<'a> {
+impl SubscriberVtbl {
     pub fn is_non_null(self) -> bool {
         self.get_channel_name.is_some() && self.get_channel_type.is_some()
             && self.disconnect.is_some() && self.get_err_msg.is_some()

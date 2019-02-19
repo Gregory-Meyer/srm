@@ -1,32 +1,34 @@
 use super::*;
 
-use std::{marker::PhantomData, ptr};
+use std::ptr;
 
 use libc::c_void;
 
 #[repr(C)]
-pub struct Node<'a, 'b> {
+pub struct Node {
     impl_ptr: *mut c_void,
-    vptr: *const NodeVtbl<'a, 'b>,
-    phantom: PhantomData<(&'a mut c_void, NodeVtbl<'a, 'b>)>,
+    vptr: *const NodeVtbl,
 }
 
-impl<'a, 'b> Node<'a, 'b> {
-    pub unsafe fn new(core: &'a Core, vtbl: &'b NodeVtbl<'a, 'b>) -> Result<'b, Node<'a, 'b>> {
-        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr: vtbl, phantom: PhantomData };
+impl Node {
+    pub unsafe fn new(core: Core, vtbl: *mut NodeVtbl) -> Result<'static, Node> {
+        assert!(!vtbl.is_null());
+        assert!((*vtbl).is_non_null());
 
-        assert!(vtbl.is_non_null());
-        let err = (vtbl.create.unwrap())(*core, &mut node.impl_ptr);
+        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr: vtbl };
+        let err = ((*vtbl).create.unwrap())(core, &mut node.impl_ptr);
 
         if err == 0 {
             Ok(node)
         } else {
-            let msg = (vtbl.get_err_msg.unwrap())(ptr::null(), err).into_str().unwrap();
+            let msg = ((*vtbl).get_err_msg.unwrap())(ptr::null(), err).into_str().unwrap();
 
             Err(ForeignError::new(err, msg))
         }
     }
+}
 
+impl<'a> Node {
     pub unsafe fn run(&mut self) -> Result<'a, ()> {
         let err = ((*self.vptr).run.unwrap())(self.impl_ptr);
 
@@ -58,7 +60,7 @@ impl<'a, 'b> Node<'a, 'b> {
     }
 }
 
-impl<'a, 'b> Drop for Node<'a, 'b> {
+impl Drop for Node {
     fn drop(&mut self) {
         let err = ((*self.vptr).destroy.unwrap())(self.impl_ptr);
 
@@ -72,17 +74,16 @@ impl<'a, 'b> Drop for Node<'a, 'b> {
 }
 
 #[repr(C)]
-pub struct NodeVtbl<'a, 'b> {
+pub struct NodeVtbl {
     create: Option<extern "C" fn(Core, *mut *mut c_void) -> c_int>,
     destroy: Option<extern "C" fn(*mut c_void) -> c_int>,
     run: Option<extern "C" fn(*mut c_void) -> c_int>,
     stop: Option<extern "C" fn(*mut c_void) -> c_int>,
-    get_type: Option<extern "C" fn(*const c_void) -> StrView<'a>>,
-    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView<'a>>,
-    phantom: PhantomData<&'b extern "C" fn(*const c_void) -> c_int>,
+    get_type: Option<extern "C" fn(*const c_void) -> StrView>,
+    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
 }
 
-impl<'a, 'b> NodeVtbl<'a, 'b> {
+impl NodeVtbl {
     pub fn is_non_null(self) -> bool {
         self.create.is_some() && self.destroy.is_some() && self.run.is_some()
             && self.stop.is_some() && self.get_type.is_some()
