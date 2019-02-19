@@ -32,8 +32,8 @@
 extern "C" {
 #endif
 
-typedef int_least64_t SrmMsgType;
-typedef int_least64_t SrmWord;
+typedef uint64_t SrmMsgType;
+typedef uint64_t SrmWord;
 typedef ptrdiff_t SrmIndex;
 
 typedef struct SrmCore SrmCore;
@@ -53,10 +53,13 @@ typedef struct SrmMsgBuilderVtbl SrmMsgBuilderVtbl;
 typedef int (*SrmSubscribeCallback)(SrmCore core, SrmMsgView msg, void *arg);
 typedef int (*SrmPublishFn)(SrmCore core, SrmMsgBuilder builder, void *arg);
 
-typedef struct SrmSubscriberParams SrmSubscriberParams;
-typedef struct SrmPublishParams SrmPublishParams;
+typedef struct SrmSubscribeParams SrmSubscribeParams;
+typedef struct SrmAdvertiseParams SrmAdvertiseParams;
 
 typedef struct SrmCoreVtbl SrmCoreVtbl;
+
+typedef struct SrmPublisherVtbl SrmPublisherVtbl;
+typedef struct SrmSubscriberVtbl SrmSubscriberVtbl;
 
 typedef struct SrmNodeVtbl SrmNodeVtbl;
 

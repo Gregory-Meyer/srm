@@ -37,41 +37,7 @@ extern "C" {
 
 struct SrmCore {
     void *impl_ptr;
-    const SrmCoreVtbl *vtbl;
-};
-
-struct SrmSubscribeParams {
-    SrmMsgType type;
-    SrmStrView topic;
-    SrmSubscribeCallback callback;
-    void *arg;
-};
-
-struct SrmAdvertiseParams {
-    SrmMsgType type;
-    SrmStrView topic;
-    SrmPublishFn fn;
-    void *arg;
-};
-
-struct SrmSubscriberVtbl {
-    SrmStrView (*get_channel_name)(const void *impl_ptr);
-    SrmMsgType (*get_channel_type)(const void *impl_ptr);
-    int (*disconnect)(void *impl_ptr);
-    SrmStrView (*get_err_msg)(const void *impl_ptr, int err);
-};
-
-struct SrmSubscriber {
-    void *impl_ptr;
-    const SrmSubscriberVtbl *vptr;
-};
-
-struct SrmPublisherVtbl {
-    SrmStrView (*get_channel_name)(const void *impl_ptr);
-    SrmMsgType (*get_channel_type)(const void *impl_ptr);
-    int (*publish)(void *impl_ptr, SrmPublishFn fn, void *arg);
-    int (*disconnect)(void *impl_ptr);
-    SrmStrView (*get_err_msg)(const void *impl_ptr, int err);
+    const SrmCoreVtbl *vptr;
 };
 
 struct SrmPublisher {
@@ -79,11 +45,43 @@ struct SrmPublisher {
     const SrmPublisherVtbl *vptr;
 };
 
+struct SrmSubscriber {
+    void *impl_ptr;
+    const SrmSubscriberVtbl *vptr;
+};
+
+struct SrmSubscribeParams {
+    SrmMsgType msg_type;
+    SrmStrView topic;
+    SrmSubscribeCallback callback;
+    void *arg;
+};
+
+struct SrmAdvertiseParams {
+    SrmMsgType msg_type;
+    SrmStrView topic;
+};
+
 struct SrmCoreVtbl {
-    SrmStrView (*get_type)(const void *impl_ptr);
-    int (*subscribe)(void *impl_ptr, SrmSubscribeParams params, SrmSubscriber *subscriber);
-    int (*advertise)(void *impl_ptr, SrmPublishParams params, SrmPublisher *publisher);
-    SrmStrView (*get_err_msg)(const void *impl_ptr, int err);
+    SrmStrView (*get_type)(const void*);
+    int (*subscribe)(void*, SrmSubscribeParams, SrmSubscriber*);
+    int (*advertise)(void*, SrmAdvertiseParams, SrmPublisher*);
+    SrmStrView (*get_err_msg)(const void*, int);
+};
+
+struct SrmSubscriberVtbl {
+    SrmStrView (*get_channel_name)(const void*);
+    SrmMsgType (*get_channel_type)(const void*);
+    int (*disconnect)(void*);
+    SrmStrView (*get_err_msg)(const void*, int);
+};
+
+struct SrmPublisherVtbl {
+    SrmStrView (*get_channel_name)(const void*);
+    SrmMsgType (*get_channel_type)(const void*);
+    int (*publish)(void*, SrmPublishFn, void*);
+    int (*disconnect)(void*);
+    SrmStrView (*get_err_msg)(const void*, int);
 };
 
 #ifdef __cplusplus
