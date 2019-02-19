@@ -26,6 +26,7 @@ extern crate capnp;
 extern crate fnv;
 extern crate libc;
 extern crate libloading;
+extern crate lock_api;
 extern crate parking_lot;
 extern crate rayon;
 
@@ -37,6 +38,7 @@ use fnv::FnvBuildHasher;
 use parking_lot::RwLock;
 use rayon::prelude::*;
 use libloading::{Library, Symbol};
+use lock_api::RwLockUpgradableReadGuard;
 
 pub mod ffi;
 
@@ -52,10 +54,21 @@ struct PluginLoader {
 pub struct Channel {
     name: String,
     msg_type: u64,
+    max_subscribers: Option<usize>,
+    state: RwLock<ChannelMutableState>,
+}
+
+struct ChannelMutableState {
     callbacks: HashMap<usize, Box<dyn Fn(&ReaderSegments)
         -> Result<(), (i32, &'static [u8])> + Sync + Send>, FnvBuildHasher>,
     id_counter: usize,
-    max_subscribers: Option<usize>,
+}
+
+impl ChannelMutableState {
+    fn new() -> ChannelMutableState {
+        ChannelMutableState{ callbacks: HashMap::with_hasher(FnvBuildHasher::default()),
+                             id_counter: 0 }
+    }
 }
 
 #[derive(Debug)]
@@ -71,61 +84,76 @@ impl Display for MaxSubscribersReachedError {
 
 impl Channel {
     fn new(name: String, msg_type: u64) -> Channel {
-        Channel{ name, msg_type, callbacks: HashMap::with_hasher(FnvBuildHasher::default()),
-                 id_counter: 0, max_subscribers: None }
+        Channel{ name, msg_type, max_subscribers: None,
+                 state: RwLock::new(ChannelMutableState::new()) }
     }
 
     fn with_bound(name: String, msg_type: u64, max_subscribers: usize) -> Channel {
-        Channel{ name, msg_type, callbacks: HashMap::with_hasher(FnvBuildHasher::default()),
-                 id_counter: 0, max_subscribers: Some(max_subscribers) }
+        Channel{ name, msg_type, max_subscribers: Some(max_subscribers),
+                 state: RwLock::new(ChannelMutableState::new()) }
     }
 
-    fn add_callback<F>(&mut self, callback: F) -> Result<usize, MaxSubscribersReachedError>
+    fn add_callback<F>(&self, callback: F) -> Result<usize, MaxSubscribersReachedError>
         where F: Fn(&ReaderSegments) -> Result<(), (i32, &'static [u8])> + Sync + Send + 'static {
+        let state = self.state.upgradable_read();
+
         if let Some(m) = self.max_subscribers {
-            if self.callbacks.len() == m {
+            if state.callbacks.len() == m {
                 return Err(MaxSubscribersReachedError{ });
             }
         }
 
-        let id = self.id_counter;
-        self.id_counter += 1;
+        let mut state = RwLockUpgradableReadGuard::upgrade(state);
 
-        self.callbacks.insert(id, Box::new(callback));
+        let id = state.id_counter;
+        state.id_counter += 1;
+
+        state.callbacks.insert(id, Box::new(callback));
 
         Ok(id)
+    }
+
+    fn remove_callback(&self, id: usize) -> bool {
+        let mut state = self.state.write();
+
+        state.callbacks.remove(&id).is_some()
+    }
+
+    fn send_message(&self, segments: OwnedSegments) {
+        let state = self.state.read();
+
+        state.callbacks.par_iter().map(|(_, v)| v).for_each(|callback| {
+            if let Err((c, m)) = callback(&segments) {
+                let msg_str = unsafe { str::from_utf8_unchecked(&m[..m.len()]) };
+                eprintln!("error handling callback on channel {}: {} ({})",
+                          self.name, c, msg_str);
+            }
+        });
     }
 }
 
 pub struct Subscriber {
-    channel: Arc<RwLock<Channel>>,
+    channel: Arc<Channel>,
     id: usize,
 }
 
 impl Subscriber {
-    fn new<F>(channel: Arc<RwLock<Channel>>, callback: F)
+    fn new<F>(channel: Arc<Channel>, callback: F)
         -> Result<Subscriber, MaxSubscribersReachedError>
         where F: Fn(&ReaderSegments) -> Result<(), (i32, &'static [u8])> + Sync + Send + 'static {
-        let id = {
-            let mut guard = channel.write();
-            guard.add_callback(callback)?
-        };
+        let id = channel.add_callback(callback)?;
 
         Ok(Subscriber{ channel, id })
     }
 
     fn msg_type(&self) -> u64 {
-        let channel = self.channel.read();
-
-        channel.msg_type
+        self.channel.msg_type
     }
 }
 
 impl<'a> Subscriber {
     fn name(&'a self) -> &'a str {
-        let channel = self.channel.read();
-
-        let str_ptr: *const _ = &channel.name as &str;
+        let str_ptr: *const _ = &self.channel.name as &str;
 
         unsafe { &(*str_ptr) }
     }
@@ -133,17 +161,16 @@ impl<'a> Subscriber {
 
 impl Drop for Subscriber {
     fn drop(&mut self) {
-        let mut channel = self.channel.write();
-        channel.callbacks.remove(&self.id);
+        self.channel.remove_callback(self.id);
     }
 }
 
 pub struct Publisher {
-    channel: Arc<RwLock<Channel>>,
+    channel: Arc<Channel>,
 }
 
 impl Publisher {
-    fn new(channel: Arc<RwLock<Channel>>) -> Publisher {
+    fn new(channel: Arc<Channel>) -> Publisher {
         Publisher{ channel }
     }
 
@@ -151,30 +178,18 @@ impl Publisher {
         let channel = self.channel.clone();
 
         rayon::spawn(move || {
-            let channel = channel.read();
-
-            channel.callbacks.par_iter().map(|(_, v)| v).for_each(|callback| {
-                if let Err((c, m)) = callback(&segments) {
-                    let msg_str = unsafe { str::from_utf8_unchecked(&m[..m.len()]) };
-                    eprintln!("error handling callback on channel {}: {} ({})",
-                              channel.name, c, msg_str);
-                }
-            });
+            channel.send_message(segments);
         });
     }
 
     fn msg_type(&self) -> u64 {
-        let channel = self.channel.read();
-
-        channel.msg_type
+        self.channel.msg_type
     }
 }
 
 impl<'a> Publisher {
     fn name(&'a self) -> &'a str {
-        let channel = self.channel.read();
-
-        let str_ptr: *const _ = &channel.name as &str;
+        let str_ptr: *const _ = &self.channel.name as &str;
 
         unsafe { &(*str_ptr) }
     }
