@@ -35,7 +35,7 @@ pub struct MsgSegment<'a> {
 }
 
 impl<'a> MsgSegment<'a> {
-    pub unsafe fn as_slice(self) -> Option<&'a mut [Word]> {
+    pub unsafe fn into_slice(self) -> Option<&'a mut [Word]> {
         if self.data.is_null() {
             assert_eq!(self.len, 0);
 
@@ -57,7 +57,7 @@ pub struct MsgSegmentView<'a> {
 }
 
 impl<'a> MsgSegmentView<'a> {
-    pub unsafe fn as_slice(self) -> Option<&'a [Word]> {
+    pub unsafe fn into_slice(self) -> Option<&'a [Word]> {
         if self.data.is_null() {
             assert_eq!(self.len, 0);
 
@@ -80,7 +80,7 @@ pub struct MsgView<'a> {
 }
 
 impl<'a> MsgView<'a> {
-    pub unsafe fn as_slice(self) -> Option<(MsgType, &'a [MsgSegmentView<'a>])> {
+    pub unsafe fn into_slice(self) -> Option<(MsgType, &'a [MsgSegmentView<'a>])> {
         if self.segments.is_null() {
             assert_eq!(self.num_segments, 0);
 
@@ -111,7 +111,7 @@ impl<'a> MsgBuilder<'a> {
         let err = ((*self.vptr).alloc_segment.unwrap())(self.impl_ptr, &mut segment);
 
         match self.get_err_msg(err) {
-            None => Ok(segment.as_slice().unwrap()),
+            None => Ok(segment.into_slice().unwrap()),
             Some(e) => Err(ForeignError::new(err, e)),
         }
     }
