@@ -39,9 +39,9 @@ extern "C" {
 
 struct SrmNodeVtbl {
     int (*create_fn)(SrmCore core, void **node);
-    int (*destroy_fn)(SrmCore core, void *node);
-    int (*run_fn)(SrmCore core, void *node);
-    int (*stop_fn)(SrmCore core, void *node);
+    int (*destroy_fn)(void *node);
+    int (*run_fn)(void *node);
+    int (*stop_fn)(void *node);
     SrmStrView (*err_str_fn)(int err);
 };
 

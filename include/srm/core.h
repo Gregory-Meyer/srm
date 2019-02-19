@@ -40,61 +40,51 @@ struct SrmCore {
     const SrmCoreVtbl *vtbl;
 };
 
-struct SrmSubscriberParams {
+struct SrmSubscribeParams {
     SrmMsgType type;
     SrmStrView topic;
     SrmSubscribeCallback callback;
     void *arg;
 };
 
-struct SrmPublishParams {
+struct SrmAdvertiseParams {
     SrmMsgType type;
     SrmStrView topic;
     SrmPublishFn fn;
     void *arg;
 };
 
-struct SrmCoreVtbl {
-    int (*subscribe)(void *impl_ptr, SrmSubscriberParams params);
-    int (*publish)(void *impl_ptr, SrmPublishParams params);
-    SrmStrView (*err_to_str)(int err);
+struct SrmSubscriberVtbl {
+    SrmStrView (*get_channel_name)(const void *impl_ptr);
+    SrmMsgType (*get_channel_type)(const void *impl_ptr);
+    int (*disconnect)(void *impl_ptr);
+    SrmStrView (*get_err_msg)(const void *impl_ptr, int err);
 };
 
-inline int srm_Core_subscribe(SrmCore core, SrmSubscriberParams params) {
-    assert(core.impl_ptr);
-    assert(core.vtbl);
-    assert(core.vtbl->subscribe);
-    assert(core.vtbl->publish);
-    assert(core.vtbl->err_to_str);
-    assert(params.type & (SrmMsgType) 1 << 63);
-    assert(params.topic.data);
-    assert(params.callback);
+struct SrmSubscriber {
+    void *impl_ptr;
+    const SrmSubscriberVtbl *vptr;
+};
 
-    return core.vtbl->subscribe(core.impl_ptr, params);
-}
+struct SrmPublisherVtbl {
+    SrmStrView (*get_channel_name)(const void *impl_ptr);
+    SrmMsgType (*get_channel_type)(const void *impl_ptr);
+    int (*publish)(void *impl_ptr, SrmPublishFn fn, void *arg);
+    int (*disconnect)(void *impl_ptr);
+    SrmStrView (*get_err_msg)(const void *impl_ptr, int err);
+};
 
-inline int srm_Core_publish(SrmCore core, SrmPublishParams params) {
-    assert(core.impl_ptr);
-    assert(core.vtbl);
-    assert(core.vtbl->subscribe);
-    assert(core.vtbl->publish);
-    assert(core.vtbl->err_to_str);
-    assert(params.type & (SrmMsgType) 1 << 63);
-    assert(params.topic.data);
-    assert(params.fn);
+struct SrmPublisher {
+    void *impl_ptr;
+    const SrmPublisherVtbl *vptr;
+};
 
-    return core.vtbl->publish(core.impl_ptr, params);
-}
-
-inline SrmStrView srm_Core_err_to_str(SrmCore core, int err) {
-    assert(core.impl_ptr);
-    assert(core.vtbl);
-    assert(core.vtbl->subscribe);
-    assert(core.vtbl->publish);
-    assert(core.vtbl->err_to_str);
-
-    return core.vtbl->err_to_str(err);
-}
+struct SrmCoreVtbl {
+    SrmStrView (*get_type)(const void *impl_ptr);
+    int (*subscribe)(void *impl_ptr, SrmSubscribeParams params, SrmSubscriber *subscriber);
+    int (*advertise)(void *impl_ptr, SrmPublishParams params, SrmPublisher *publisher);
+    SrmStrView (*get_err_msg)(const void *impl_ptr, int err);
+};
 
 #ifdef __cplusplus
 } // extern "C"

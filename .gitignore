@@ -103,3 +103,7 @@ obj/
 # End of https://www.gitignore.io/api/c,c++,ninja,cmake,premake-gmake
 
 build/
+
+/target
+**/*.rs.bk
+Cargo.lock

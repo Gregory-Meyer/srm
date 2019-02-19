@@ -34,7 +34,7 @@ extern "C" {
 
 typedef int_least64_t SrmMsgType;
 typedef int_least64_t SrmWord;
-typedef size_t SrmIndex;
+typedef ptrdiff_t SrmIndex;
 
 typedef struct SrmCore SrmCore;
 
