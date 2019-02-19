@@ -20,7 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::slice;
+use std::{slice, str};
 
 use libc::{c_char, ptrdiff_t};
 
@@ -32,7 +32,7 @@ pub struct StrView {
 }
 
 impl<'a> StrView {
-    pub unsafe fn as_slice(self) -> Option<&'a [u8]> {
+    pub unsafe fn as_str(self) -> Option<&'a str> {
         if self.data.is_null() {
             assert!(self.len == 0);
 
@@ -40,7 +40,9 @@ impl<'a> StrView {
         } else {
             assert!(self.len > 0);
 
-            Some(slice::from_raw_parts(self.data as *const u8, self.len as usize))
+            let slice = slice::from_raw_parts(self.data as *const u8, self.len as usize);
+
+            Some(str::from_utf8(&slice).unwrap())
         }
 
     }
