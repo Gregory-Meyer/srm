@@ -20,9 +20,11 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use libc::{c_int, c_void};
-
 use super::*;
+
+use std::ptr;
+
+use libc::{c_int, c_void};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -39,18 +41,33 @@ impl Core {
         ((*self.vptr).get_type.unwrap())(self.impl_ptr)
     }
 
-    pub unsafe fn subscribe(self, params: SubscribeParams, subscriber: *mut Subscriber) -> c_int {
+    pub unsafe fn subscribe(self, params: SubscribeParams)
+        -> Result<Subscriber, (c_int, StrView)> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        ((*self.vptr).subscribe.unwrap())(self.impl_ptr, params, subscriber)
+        let mut subscriber = Subscriber::default();
+        let err = ((*self.vptr).subscribe.unwrap())(self.impl_ptr, params, &mut subscriber);
+
+        if err != 0 {
+            Err((err, self.get_err_msg(err)))
+        } else {
+            Ok(subscriber)
+        }
     }
 
-    pub unsafe fn advertise(self, params: AdvertiseParams, publisher: *mut Publisher) -> c_int {
+    pub unsafe fn advertise(self, params: AdvertiseParams) -> Result<Publisher, (c_int, StrView)> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        ((*self.vptr).advertise.unwrap())(self.impl_ptr, params, publisher)
+        let mut publisher = Publisher::default();
+        let err = ((*self.vptr).advertise.unwrap())(self.impl_ptr, params, &mut publisher);
+
+        if err != 0 {
+            Err((err, self.get_err_msg(err)))
+        } else {
+            Ok(publisher)
+        }
     }
 
     pub unsafe fn get_err_msg(self, err: c_int) -> StrView {
@@ -68,6 +85,12 @@ pub struct Publisher {
     vptr: *const PublisherVtbl,
 }
 
+impl Default for Publisher {
+    fn default() -> Publisher {
+        Publisher{ impl_ptr: ptr::null_mut(), vptr: ptr::null() }
+    }
+}
+
 impl Publisher {
     pub unsafe fn get_channel_name(self) -> StrView {
         assert!(!self.vptr.is_null());
@@ -83,18 +106,31 @@ impl Publisher {
         ((*self.vptr).get_channel_type.unwrap())(self.impl_ptr)
     }
 
-    pub unsafe fn publish(self, publish_fn: PublishFn, arg: *mut c_void) -> c_int {
+    pub unsafe fn publish(self, publish_fn: PublishFn, arg: *mut c_void)
+        -> Result<(), (c_int, StrView)> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        ((*self.vptr).publish.unwrap())(self.impl_ptr, publish_fn, arg)
+        let err = ((*self.vptr).publish.unwrap())(self.impl_ptr, publish_fn, arg);
+
+        if err != 0 {
+            Err((err, self.get_err_msg(err)))
+        } else {
+            Ok(())
+        }
     }
 
-    pub unsafe fn disconnect(self) -> c_int {
+    pub unsafe fn disconnect(self) -> Result<(), (c_int, StrView)> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        ((*self.vptr).disconnect.unwrap())(self.impl_ptr)
+        let err = ((*self.vptr).disconnect.unwrap())(self.impl_ptr);
+
+        if err != 0 {
+            Err((err, self.get_err_msg(err)))
+        } else {
+            Ok(())
+        }
     }
 
     pub unsafe fn get_err_msg(self, err: c_int) -> StrView {
@@ -112,6 +148,12 @@ pub struct Subscriber {
     vptr: *const SubscriberVtbl,
 }
 
+impl Default for Subscriber {
+    fn default() -> Subscriber {
+        Subscriber{ impl_ptr: ptr::null_mut(), vptr: ptr::null() }
+    }
+}
+
 impl Subscriber {
     pub unsafe fn get_channel_name(self) -> StrView {
         assert!(!self.vptr.is_null());
@@ -127,11 +169,17 @@ impl Subscriber {
         ((*self.vptr).get_channel_type.unwrap())(self.impl_ptr)
     }
 
-    pub unsafe fn disconnect(self) -> c_int {
+    pub unsafe fn disconnect(self) -> Result<(), (c_int, StrView)> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
 
-        ((*self.vptr).disconnect.unwrap())(self.impl_ptr)
+        let err = ((*self.vptr).disconnect.unwrap())(self.impl_ptr);
+
+        if err != 0 {
+            Err((err, self.get_err_msg(err)))
+        } else {
+            Ok(())
+        }
     }
 
     pub unsafe fn get_err_msg(self, err: c_int) -> StrView {

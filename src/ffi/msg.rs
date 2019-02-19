@@ -22,6 +22,8 @@
 
 use super::*;
 
+use std::ptr;
+
 use libc::c_void;
 
 #[repr(C)]
@@ -54,13 +56,20 @@ pub struct MsgBuilder {
 }
 
 impl MsgBuilder {
-    pub unsafe fn alloc_segment(self, segment: *mut MsgSegment) -> c_int {
+    pub unsafe fn alloc_segment(self, min_len: Index) -> Result<MsgSegment, (c_int, StrView)> {
         assert!(!self.vptr.is_null());
         assert!((*self.vptr).is_non_null());
-        assert!(!segment.is_null());
-        assert!((*segment).len > 0);
+        assert!(min_len > 0);
 
-        ((*self.vptr).alloc_segment.unwrap())(self.impl_ptr, segment)
+        let mut segment = MsgSegment{ data: ptr::null_mut(), len: min_len };
+
+        let err = ((*self.vptr).alloc_segment.unwrap())(self.impl_ptr, &mut segment);
+
+        if err != 0 {
+            Err((err, self.get_err_msg(err)))
+        } else {
+            Ok(segment)
+        }
     }
 
     pub unsafe fn get_err_msg(self, err: c_int) -> StrView {
