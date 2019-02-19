@@ -1,3 +1,25 @@
+// Copyright 2019 Gregory Meyer
+//
+// Permission is hereby granted, free of charge, to any person
+// obtaining a copy of this software and associated documentation
+// files (the "Software"), to deal in the Software without
+// restriction, including without limitation the rights to use, copy,
+// modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+// BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+// ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #![allow(dead_code)]
 
 extern crate capnp;
@@ -16,72 +38,7 @@ use parking_lot::RwLock;
 use rayon::prelude::*;
 use libloading::{Library, Symbol};
 
-mod ffi {
-    use libc::{c_char, c_int, c_void, ptrdiff_t};
-
-    #[repr(C)]
-    struct Core {
-        impl_ptr: *mut c_void,
-        vptr: *const CoreVtbl,
-    }
-
-    #[repr(C)]
-    struct Publisher {
-        impl_ptr: *mut c_void,
-        vptr: *const PublisherVtbl,
-    }
-
-    #[repr(C)]
-    struct Subscriber {
-        impl_ptr: *mut c_void,
-        vptr: *const SubscriberVtbl,
-    }
-
-    #[repr(C)]
-    struct SubscribeParams {
-        msg_type: u64,
-        topic: StrView,
-        callback: extern "C" fn(Core, MsgView, *mut c_void) -> c_int,
-        arg: *mut c_void,
-    }
-
-    #[repr(C)]
-    struct StrView {
-        data: *const c_char,
-        len: ptrdiff_t,
-    }
-
-    #[repr(C)]
-    struct CoreVtbl {
-        get_type: extern "C" fn(*const c_void) -> StrView,
-        subscribe: extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber),
-    }
-
-    #[repr(C)]
-    struct PublisherVtbl {
-        get_channel_name: extern "C" fn(*const c_void) -> StrView,
-        get_channel_type: extern "C" fn(*const c_void) -> u64,
-    }
-
-    #[repr(C)]
-    struct SubscriberVtbl {
-        get_channel_name: extern "C" fn(*const c_void) -> StrView,
-        get_channel_type: extern "C" fn(*const c_void) -> u64,
-    }
-
-    #[repr(C)]
-    struct MsgView {
-        segments: *const SegmentView,
-        num_segments: ptrdiff_t,
-        msg_type: u64,
-    }
-
-    #[repr(C)]
-    struct SegmentView {
-        data: *const u64,
-        len: ptrdiff_t,
-    }
-}
+pub mod ffi;
 
 pub struct Core {
     loader: PluginLoader,
