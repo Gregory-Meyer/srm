@@ -123,7 +123,7 @@ impl<'a> MsgBuilder<'a> {
         if err == 0 {
             None
         } else {
-            Some(((*self.vptr).get_err_msg.unwrap())(self.impl_ptr, err).as_str().unwrap())
+            Some(((*self.vptr).get_err_msg.unwrap())(self.impl_ptr, err).into_str().unwrap())
         }
     }
 }
