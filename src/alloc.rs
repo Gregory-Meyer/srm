@@ -67,6 +67,10 @@ fn alloc_at_least(min_num_words: usize) -> (*mut capnp::Word, usize) {
     let layout = unsafe { Layout::from_size_align_unchecked(num_bytes, CACHE_SIZE) };
     let buf = unsafe { alloc::alloc_zeroed(layout) } as *mut capnp::Word;
 
+    if buf.is_null() {
+        alloc::handle_alloc_error(layout);
+    }
+
     (buf, num_words)
 }
 
