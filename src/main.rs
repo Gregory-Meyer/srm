@@ -22,7 +22,6 @@
 
 #![allow(dead_code)]
 
-#[macro_use]
 extern crate capnp;
 extern crate fnv;
 extern crate libc;
