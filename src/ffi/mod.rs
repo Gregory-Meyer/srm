@@ -28,16 +28,13 @@ pub type MsgType = u64;
 pub type Index = ptrdiff_t;
 pub type SubscribeCallback = extern "C" fn(Core, MsgView, *mut c_void) -> c_int;
 pub type PublishFn = extern "C" fn(Core, MsgBuilder, *mut c_void) -> c_int;
-pub type Result<'a, T> = std::result::Result<T, ForeignError<'a>>;
 
 pub mod core;
-pub mod foreign_error;
 pub mod msg;
 pub mod node;
 pub mod util;
 
 pub use self::core::*;
-pub use self::foreign_error::*;
 pub use self::msg::*;
 pub use self::node::*;
 pub use self::util::*;

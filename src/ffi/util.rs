@@ -20,35 +20,11 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::{slice, str};
-
 use libc::{c_char, ptrdiff_t};
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct StrView{
-    data: *const c_char,
-    len: ptrdiff_t,
-}
-
-impl<'a> StrView {
-    pub unsafe fn into_str(self) -> Option<&'a str> {
-        if self.data.is_null() {
-            assert!(self.len == 0);
-
-            None
-        } else {
-            assert!(self.len > 0);
-
-            let slice = slice::from_raw_parts(self.data as *const u8, self.len as usize);
-
-            Some(str::from_utf8(&slice).unwrap())
-        }
-    }
-
-    pub fn from_str(s: &'a str) -> StrView {
-        let bytes = s.as_bytes();
-
-        StrView{ data: bytes.as_ptr() as *const c_char, len: s.len() as ptrdiff_t }
-    }
+    pub data: *const c_char,
+    pub len: ptrdiff_t,
 }

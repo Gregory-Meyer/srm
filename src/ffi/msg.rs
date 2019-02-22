@@ -22,117 +22,40 @@
 
 use super::*;
 
-use std::{ptr, slice};
-
 use libc::c_void;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct MsgSegment {
-    data: *mut Word,
-    len: Index,
-}
-
-impl<'a> MsgSegment {
-    pub unsafe fn into_slice(self) -> Option<&'a mut [Word]> {
-        if self.data.is_null() {
-            assert_eq!(self.len, 0);
-
-            None
-        } else {
-            assert!(self.len > 0);
-
-            Some(slice::from_raw_parts_mut(self.data, self.len as usize))
-        }
-    }
+    pub data: *mut Word,
+    pub len: Index,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct MsgSegmentView {
-    data: *const Word,
-    len: Index,
-}
-
-impl<'a> MsgSegmentView {
-    pub unsafe fn into_slice(self) -> Option<&'a [Word]> {
-        if self.data.is_null() {
-            assert_eq!(self.len, 0);
-
-            None
-        } else {
-            assert!(self.len > 0);
-
-            Some(slice::from_raw_parts(self.data, self.len as usize))
-        }
-    }
+    pub data: *const Word,
+    pub len: Index,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct MsgView {
-    segments: *const MsgSegmentView,
-    num_segments: Index,
-    msg_type: MsgType,
-}
-
-impl<'a> MsgView {
-    pub unsafe fn into_slice(self) -> Option<(MsgType, &'a [MsgSegmentView])> {
-        if self.segments.is_null() {
-            assert_eq!(self.num_segments, 0);
-
-            None
-        } else {
-            assert!(self.num_segments > 0);
-
-            Some((self.msg_type, slice::from_raw_parts(self.segments, self.num_segments as usize)))
-        }
-    }
+    pub segments: *const MsgSegmentView,
+    pub num_segments: Index,
+    pub msg_type: MsgType,
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct MsgBuilder {
-    impl_ptr: *mut c_void,
-    vptr: *const MsgBuilderVtbl,
-}
-
-impl<'a> MsgBuilder {
-    pub unsafe fn alloc_segment(&'a mut self, min_len: Index) -> Result<'a, &'a mut [Word]> {
-        assert!(!self.vptr.is_null());
-        assert!((*self.vptr).is_non_null());
-        assert!(min_len > 0);
-
-        let mut segment = MsgSegment{ data: ptr::null_mut(), len: min_len };
-        let err = ((*self.vptr).alloc_segment.unwrap())(self.impl_ptr, &mut segment);
-
-        match self.get_err_msg(err) {
-            None => Ok(segment.into_slice().unwrap()),
-            Some(e) => Err(ForeignError::new(err, e)),
-        }
-    }
-
-    pub unsafe fn get_err_msg(&'a self, err: c_int) -> Option<&'a str> {
-        assert!(!self.vptr.is_null());
-        assert!((*self.vptr).is_non_null());
-
-        if err == 0 {
-            None
-        } else {
-            Some(((*self.vptr).get_err_msg.unwrap())(self.impl_ptr, err).into_str().unwrap())
-        }
-    }
+    pub impl_ptr: *mut c_void,
+    pub vptr: *const MsgBuilderVtbl,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct MsgBuilderVtbl {
-    alloc_segment: Option<extern "C" fn(*mut c_void, *mut MsgSegment) -> c_int>,
-    get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
-}
-
-impl MsgBuilderVtbl {
-    pub fn is_non_null(self) -> bool {
-        self.alloc_segment.is_some() && self.get_err_msg.is_some()
-    }
+    pub alloc_segment: Option<extern "C" fn(*mut c_void, *mut MsgSegment) -> c_int>,
+    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
 }
