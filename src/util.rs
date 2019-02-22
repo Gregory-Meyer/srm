@@ -24,6 +24,17 @@ use super::*;
 
 use std::{slice, str};
 
+/// Converts a foreign string slice into a native string slice.
+///
+/// # Safety
+///
+/// Similar to `std::slice::from_raw_parts`, there is no guarantee that the provided slice
+/// is valid for as many bytes as it claims to be, nor is the inferred lifetime accurate.
+///
+/// # Panics
+///
+/// Panics if `raw` does not point to a string of at least one character or if `raw` does
+/// not contain a valid UTF-8 sequence.
 pub unsafe fn ffi_to_str<'a>(raw: ffi::StrView) -> &'a str {
     assert!(!raw.data.is_null());
     assert!(raw.len > 0);
