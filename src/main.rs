@@ -22,6 +22,7 @@
 
 #![allow(dead_code)]
 
+#[macro_use]
 extern crate capnp;
 extern crate fnv;
 extern crate libc;
@@ -30,6 +31,7 @@ extern crate lock_api;
 extern crate parking_lot;
 extern crate rayon;
 
+pub mod alloc;
 pub mod channel;
 pub mod ffi;
 pub mod foreign_error;
