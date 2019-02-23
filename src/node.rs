@@ -22,24 +22,25 @@
 
 use super::*;
 
-use std::ptr;
+use std::{marker::PhantomData, ptr};
 
 use libc::{c_int, c_void};
 
 /// Wrapper around ffi::Node and ffi::NodeVtbl.
 ///
 /// Implementations of Node must be thread-safe, so all functions take &self.
-pub struct Node<'v> {
+pub struct Node<'c, 'v: 'c> {
     impl_ptr: *mut c_void,
     vptr: &'v Vtbl,
+    phantom: PhantomData<&'c mut c_void>,
 }
 
-impl<'v> Node<'v> {
+impl<'c, 'v> Node<'c, 'v> {
     /// Creates a new Node from the provided core and vtable.
-    pub fn new(core: ffi::Core, vptr: &'v Vtbl) -> Result<Node<'v>, ErrorCode<'v>> {
-        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr };
+    pub fn new<C: Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
+        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr, phantom: PhantomData };
 
-        let err = (node.vptr.create)(core, &mut node.impl_ptr);
+        let err = (node.vptr.create)(core.as_ffi(), &mut node.impl_ptr);
         node.to_result(err).map(|_| node)
     }
 
@@ -87,7 +88,7 @@ impl<'v> Node<'v> {
     }
 }
 
-impl<'v> Drop for Node<'v> {
+impl<'c, 'v> Drop for Node<'c, 'v> {
     /// Calls vptr->destroy.
     ///
     /// # Panics
