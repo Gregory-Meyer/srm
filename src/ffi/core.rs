@@ -64,27 +64,27 @@ pub struct AdvertiseParams {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct CoreVtbl {
-    pub get_type: Option<extern "C" fn(*const c_void) -> StrView>,
-    pub subscribe: Option<extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber) -> c_int>,
-    pub advertise: Option<extern "C" fn(*mut c_void, AdvertiseParams, *mut Publisher) -> c_int>,
-    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
+    pub get_type: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
+    pub subscribe: Option<unsafe extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber) -> c_int>,
+    pub advertise: Option<unsafe extern "C" fn(*mut c_void, AdvertiseParams, *mut Publisher) -> c_int>,
+    pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct PublisherVtbl {
-    pub get_channel_name: Option<extern "C" fn(*const c_void) -> StrView>,
-    pub get_channel_type: Option<extern "C" fn(*const c_void) -> MsgType>,
-    pub publish: Option<extern "C" fn(*mut c_void, PublishFn, *mut c_void) -> c_int>,
-    pub disconnect: Option<extern "C" fn(*mut c_void) -> c_int>,
-    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
+    pub get_channel_name: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
+    pub get_channel_type: Option<unsafe extern "C" fn(*const c_void) -> MsgType>,
+    pub publish: Option<unsafe extern "C" fn(*mut c_void, PublishFn, *mut c_void) -> c_int>,
+    pub disconnect: Option<unsafe extern "C" fn(*mut c_void) -> c_int>,
+    pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct SubscriberVtbl {
-    pub get_channel_name: Option<extern "C" fn(*const c_void) -> StrView>,
-    pub get_channel_type: Option<extern "C" fn(*const c_void) -> u64>,
-    pub disconnect: Option<extern "C" fn(*mut c_void) -> c_int>,
-    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
+    pub get_channel_name: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
+    pub get_channel_type: Option<unsafe extern "C" fn(*const c_void) -> u64>,
+    pub disconnect: Option<unsafe extern "C" fn(*mut c_void) -> c_int>,
+    pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
 }

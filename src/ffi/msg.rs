@@ -56,6 +56,6 @@ pub struct MsgBuilder {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct MsgBuilderVtbl {
-    pub alloc_segment: Option<extern "C" fn(*mut c_void, *mut MsgSegment) -> c_int>,
-    pub get_err_msg: Option<extern "C" fn(*const c_void, c_int) -> StrView>,
+    pub alloc_segment: Option<unsafe extern "C" fn(*mut c_void, *mut MsgSegment) -> c_int>,
+    pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
 }
