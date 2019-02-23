@@ -36,40 +36,52 @@ pub struct Node<'v> {
 
 impl<'v> Node<'v> {
     /// Creates a new Node from the provided core and vtable.
-    pub fn new(core: ffi::Core, vptr: &'v Vtbl) -> Result<Node<'v>, ForeignError<'v>> {
+    pub fn new(core: ffi::Core, vptr: &'v Vtbl) -> Result<Node<'v>, ErrorCode<'v>> {
         let mut node = Node{ impl_ptr: ptr::null_mut(), vptr };
 
         let err = (node.vptr.create)(core, &mut node.impl_ptr);
         node.to_result(err).map(|_| node)
     }
 
-    pub fn run(&self) -> Result<(), ForeignError> {
+    /// Tells the node to begin computation. Will not return until the node shuts down.
+    pub fn run(&self) -> Result<(), ErrorCode> {
         let err = (self.vptr.run)(self.impl_ptr);
         self.to_result(err)
     }
 
-    pub fn stop(&self) -> Result<(), ForeignError> {
+    /// Tells the node to stop computation. Should not block.
+    pub fn stop(&self) -> Result<(), ErrorCode> {
         let err = (self.vptr.stop)(self.impl_ptr);
         self.to_result(err)
     }
 
+    /// Returns the string type of the node as it indicates.
     pub fn get_type(&self) -> &str {
-        unsafe { ffi_to_str((self.vptr.get_type)(self.impl_ptr)) }
+        unsafe { ffi_to_str((self.vptr.get_type)(self.impl_ptr)).unwrap() }
     }
 
-    pub fn get_err_msg(&self, err: c_int) -> &str {
-        unsafe { ffi_to_str((self.vptr.get_err_msg)(self.impl_ptr, err)) }
+    /// Returns the error message corresponding to a given error.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the implementation does not return a string to explain err.
+    pub fn get_err_msg(&self, err: c_int) -> Option<&str> {
+        if err == 0 {
+            None
+        } else {
+            unsafe { Some(ffi_to_str((self.vptr.get_err_msg)(self.impl_ptr, err)).unwrap()) }
+        }
+
     }
 
-    fn to_result<'a>(&self, err: c_int) -> Result<(), ForeignError<'a>> {
+    fn to_result<'a>(&self, err: c_int) -> Result<(), ErrorCode<'a>> {
         match err {
             0 => Ok(()),
             x => {
-                assert_eq!(self.impl_ptr, ptr::null_mut());
                 let msg: &'a str =
-                    unsafe { ffi_to_str((self.vptr.get_err_msg)(self.impl_ptr, x)) };
+                    unsafe { ffi_to_str((self.vptr.get_err_msg)(self.impl_ptr, x)).unwrap() };
 
-                Err(ForeignError::new(x, msg))
+                Err(ErrorCode::new(x, msg))
             }
         }
     }
@@ -79,11 +91,13 @@ impl<'v> Drop for Node<'v> {
     /// Calls vptr->destroy.
     ///
     /// # Panics
+    ///
     /// Panics if the call to vptr.destroy returns nonzero.
     fn drop(&mut self) {
         match (self.vptr.destroy)(self.impl_ptr) {
             0 => return,
-            x => panic!("couldn't drop node {:p}: {} ({})", self.impl_ptr, self.get_err_msg(x), x),
+            x => panic!("couldn't drop node {:p}: {} ({})", self.impl_ptr,
+                        self.get_err_msg(x).unwrap(), x),
         }
     }
 }
