@@ -33,16 +33,20 @@ use std::{slice, str};
 ///
 /// # Panics
 ///
-/// Panics if `raw` does not point to a string of at least one character or if `raw` does
-/// not contain a valid UTF-8 sequence.
-pub unsafe fn ffi_to_str<'a>(raw: ffi::StrView) -> &'a str {
-    assert!(!raw.data.is_null());
+/// Panics if `raw` does not point to a valid UTF-8 sequence.
+pub unsafe fn ffi_to_str<'a>(raw: ffi::StrView) -> Option<&'a str> {
+    if raw.data.is_null() {
+        assert!(raw.len == 0);
+
+        return None;
+    }
+
     assert!(raw.len > 0);
 
     let as_slice: &'a [u8] = slice::from_raw_parts(raw.data as *const u8, raw.len as usize);
 
     match str::from_utf8(as_slice) {
-        Ok(s) => s,
-        Err(e) => panic!("StrView did not contain valid UTF-8: {}", e),
+        Ok(s) => Some(s),
+        Err(e) => panic!("StrView was not a valid UTF-8 sequence: {}", e),
     }
 }
