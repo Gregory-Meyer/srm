@@ -24,6 +24,8 @@ use super::*;
 
 use std::{slice, str};
 
+use libc::{c_char, ptrdiff_t};
+
 /// Converts a foreign string slice into a native string slice.
 ///
 /// # Safety
@@ -48,5 +50,17 @@ pub unsafe fn ffi_to_str<'a>(raw: ffi::StrView) -> Option<&'a str> {
     match str::from_utf8(as_slice) {
         Ok(s) => Some(s),
         Err(e) => panic!("StrView was not a valid UTF-8 sequence: {}", e),
+    }
+}
+
+/// Converts a UTF-8 string slice into an FFI-compatible string slice.
+///
+/// # Safety
+///
+/// The StrView must not outlive the string.
+pub fn str_to_ffi(s: &str) -> ffi::StrView {
+    ffi::StrView{
+        data: s.as_ptr() as *const c_char,
+        len: s.len() as ptrdiff_t,
     }
 }
