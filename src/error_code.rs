@@ -26,23 +26,42 @@ use std::{error::Error, fmt::{Display, Formatter, Result}};
 
 use libc::c_int;
 
+/// An error condition from outside of Rust.
+///
+/// # Examples
+/// ```
+/// unsafe fn open(pathname: &CStr) -> Result<c_int, ErrorCode<'static>> {
+///     match libc::open(pathname.as_ptr(), O_CREAT | O_RDWR) {
+///         -1 => {
+///             let errno = *libc::__errno_location();
+///             let msg = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
+///
+///             Err(ErrorCode::new(errno, msg))
+///         }
+///         x => Ok(x)
+///     }
+/// }
+/// ```
 #[derive(Debug, Copy, Clone)]
-pub struct ForeignError<'a> {
+pub struct ErrorCode<'a> {
     code: c_int,
     description: &'a str,
 }
 
-impl<'a> ForeignError<'a> {
-    pub fn new(code: c_int, description: &'a str) -> ForeignError<'a> {
+impl<'a> ErrorCode<'a> {
+    /// Creates a new error code/description pair from its parts.
+    ///
+    /// `code` must be nonzero, as zero indicates success.
+    pub fn new(code: c_int, description: &'a str) -> ErrorCode<'a> {
         assert!(code != 0);
 
-        ForeignError{ code, description }
+        ErrorCode{ code, description }
     }
 }
 
-impl<'a> Error for ForeignError<'a> { }
+impl<'a> Error for ErrorCode<'a> { }
 
-impl<'a> Display for ForeignError<'a> {
+impl<'a> Display for ErrorCode<'a> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "{} ({})", self.description, self.code)
     }

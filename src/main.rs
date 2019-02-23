@@ -33,11 +33,11 @@ extern crate rayon;
 pub mod alloc;
 pub mod channel;
 pub mod ffi;
-pub mod foreign_error;
+pub mod error_code;
 pub mod node;
 pub mod util;
 
-pub use self::foreign_error::*;
+pub use self::error_code::*;
 pub use self::util::*;
 
 fn main() {
