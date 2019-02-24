@@ -37,7 +37,7 @@ pub struct Node<'c, 'v: 'c> {
 
 impl<'c, 'v> Node<'c, 'v> {
     /// Creates a new Node from the provided core and vtable.
-    pub fn new<C: Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
+    pub fn new<C: core::Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
         let mut node = Node{ impl_ptr: ptr::null_mut(), vptr, phantom: PhantomData };
 
         let err = (node.vptr.create)(core.as_ffi(), &mut node.impl_ptr);
