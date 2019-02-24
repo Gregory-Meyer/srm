@@ -36,11 +36,10 @@ pub mod core;
 pub mod error_code;
 pub mod ffi;
 pub mod node;
+pub mod static_core;
 pub mod util;
 
-pub use self::core::*;
 pub use self::error_code::*;
-pub use self::node::*;
 pub use self::util::*;
 
 fn main() {
