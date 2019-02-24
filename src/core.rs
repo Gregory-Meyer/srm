@@ -25,42 +25,7 @@ use super::*;
 use std::error;
 
 use capnp::message::{Allocator, Builder};
-use libc::{c_char, c_int, c_void, ptrdiff_t};
-
-pub trait Error: error::Error {
-    fn from_code(code: c_int) -> Self;
-
-    fn as_code(&self) -> c_int;
-
-    fn what(&self) -> &'static str;
-}
-
-pub trait Publisher: Drop {
-    type Allocator: Allocator;
-    type Error: Error;
-
-    fn get_channel_name(&self) -> &str;
-
-    fn get_channel_type(&self) -> u64;
-
-    fn publish(&mut self, builder: Builder<Self::Allocator>) -> Result<(), Self::Error>;
-
-    fn disconnect(&mut self) -> Result<(), Self::Error>;
-
-    fn into_ffi(self) -> ffi::Publisher;
-}
-
-pub trait Subscriber: Drop {
-    type Error: Error;
-
-    fn get_channel_name(&self) -> &str;
-
-    fn get_channel_type(&self) -> u64;
-
-    fn disconnect(&mut self) -> Result<(), Self::Error>;
-
-    fn into_ffi(self) -> ffi::Subscriber;
-}
+use libc::{c_char, c_int, ptrdiff_t};
 
 pub trait Core {
     type Error: Error;
@@ -76,15 +41,52 @@ pub trait Core {
     fn as_ffi(&mut self) -> ffi::Core;
 }
 
+pub trait Publisher {
+    type Allocator: Allocator;
+    type Error: Error;
+
+    fn get_channel_name(&self) -> &str;
+
+    fn get_channel_type(&self) -> u64;
+
+    fn publish(&mut self, builder: Builder<Self::Allocator>) -> Result<(), Self::Error>;
+
+    fn disconnect(&mut self) -> Result<(), Self::Error>;
+
+    fn into_ffi(self) -> ffi::Publisher;
+}
+
+pub trait Subscriber {
+    type Error: Error;
+
+    fn get_channel_name(&self) -> &str;
+
+    fn get_channel_type(&self) -> u64;
+
+    fn disconnect(&mut self) -> Result<(), Self::Error>;
+
+    fn into_ffi(self) -> ffi::Subscriber;
+}
+
+pub trait Error: error::Error {
+    fn from_code(code: c_int) -> Self;
+
+    fn as_code(&self) -> c_int;
+
+    fn what(&self) -> &'static str;
+}
+
 #[macro_export]
 macro_rules! srm_core_impl {
     ($x:ty) => (
         fn as_ffi(&mut self) -> ffi::Core {
+            use libc::c_void;
+
             const VTBL: ffi::CoreVtbl = ffi::CoreVtbl{
-                get_type: Some(get_type_entry::<$x>),
-                subscribe: Some(subscribe_entry::<$x>),
-                advertise: Some(advertise_entry::<$x>),
-                get_err_msg: Some(get_err_msg::<$x>),
+                get_type: Some(core::core_ffi::get_type_entry::<$x>),
+                subscribe: Some(core::core_ffi::subscribe_entry::<$x>),
+                advertise: Some(core::core_ffi::advertise_entry::<$x>),
+                get_err_msg: Some(core::core_ffi::get_err_msg::<$x>),
             };
 
             ffi::Core{ impl_ptr: self as *mut $x as *mut c_void,
@@ -92,6 +94,12 @@ macro_rules! srm_core_impl {
         }
     )
 }
+
+pub mod core_ffi {
+
+use super::*;
+
+use libc::c_void;
 
 pub unsafe extern "C" fn get_type_entry<C: Core>(impl_ptr: *const c_void) -> ffi::StrView {
     assert!(!impl_ptr.is_null());
@@ -142,15 +150,16 @@ pub unsafe extern "C" fn get_err_msg<C: Core>(
     ffi::StrView{ data: msg.as_ptr() as *const c_char, len: msg.len() as ptrdiff_t }
 }
 
-pub mod subscriber {
+} // mod core_ffi
+
+mod subscriber_ffi {
 
 }
 
-pub mod publisher {
+mod publisher_ffi {
 
 use super::*;
 
-use capnp::message::{Allocator, Builder};
 use libc::{c_int, c_void};
 
 pub unsafe extern "C" fn get_channel_name_entry<P: Publisher>(
@@ -172,16 +181,8 @@ pub unsafe extern "C" fn get_channel_type_entry<P: Publisher>(impl_ptr: *const c
 pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
                                                      publish_fn: Option<ffi::PublishFn>,
                                                      arg: *mut c_void) -> c_int {
-    assert!(!impl_ptr.is_null());
-    assert!(publish_fn.is_some());
-
-    let publisher = &mut *(impl_ptr as *mut P);
-    let builder
+    unimplemented!()
 }
-
-unsafe fn builder_vtbl<A: Allocator>() -> ffi::MsgBuilderVtbl {
-
-}   
 
 // pub unsafe extern "C" fn disconnect_entry(&mut self) -> Result<(), Self::Err> {}
 
