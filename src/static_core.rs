@@ -195,7 +195,8 @@ impl core::Error for StaticCoreError {
             StaticCoreError::ChannelDisconnected => "channel disconnected",
             StaticCoreError::SubscriberDisconnected => "subscriber disconnected",
             StaticCoreError::ChannelFull => "channel has maximum subscribers",
-            StaticCoreError::ChannelTypeDiffers => "channel exists, but has differing message type",
+            StaticCoreError::ChannelTypeDiffers
+                => "channel exists, but has differing message type",
         }
     }
 }
