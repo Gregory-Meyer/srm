@@ -35,6 +35,8 @@ pub mod core;
 pub mod error_code;
 pub mod ffi;
 pub mod node;
+pub mod node_plugin;
+pub mod plugin_loader;
 pub mod static_core;
 pub mod util;
 
