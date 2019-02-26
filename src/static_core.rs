@@ -22,17 +22,54 @@
 
 use super::*;
 
-use std::{error::Error, fmt::{self, Display, Formatter}, sync::{Arc, Weak}};
+use std::{collections::hash_map::Entry, error::Error,
+          fmt::{self, Display, Formatter}, sync::{Arc, Weak}};
 
 use capnp::{message::{Allocator, Builder}, OutputSegments, Word};
-use fnv::{FnvBuildHasher, FnvHashMap, FnvHashSet};
+use fnv::{FnvBuildHasher, FnvHashMap};
 use libc::{c_int, c_void, ptrdiff_t};
 use lock_api::RwLockUpgradableReadGuard;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 
 pub struct StaticCore {
-    channels: FnvHashSet<Weak<Channel>>,
+    channels: Mutex<FnvHashMap<String, Weak<Channel>>>,
+}
+
+impl StaticCore {
+    fn get_channel(&self, name: &str, msg_type: u64) -> Result<Arc<Channel>, StaticCoreError> {
+        let mut channels = self.channels.lock();
+
+        let make_channel = || Arc::new(Channel::new(name.to_string(), msg_type));
+
+        match channels.entry(name.to_string()) {
+            Entry::Vacant(e) => {
+                let channel = make_channel();
+                e.insert(Arc::downgrade(&channel));
+
+                Ok(channel)
+            },
+            Entry::Occupied(mut e) => {
+                let value = e.get_mut();
+
+                match value.upgrade() {
+                    Some(c) => {
+                        if c.msg_type() != msg_type {
+                            return Err(StaticCoreError::ChannelTypeDiffers);
+                        }
+
+                        Ok(c)
+                    }
+                    None => {
+                        let channel = make_channel(); // all subscribers destroyed
+                        *value = Arc::downgrade(&channel);
+
+                        Ok(channel)
+                    },
+                }
+            }
+        }
+    }
 }
 
 impl core::Core for StaticCore {
@@ -40,17 +77,26 @@ impl core::Core for StaticCore {
     type Publisher = Publisher;
     type Subscriber = Subscriber;
 
-    fn get_type(&self) -> &str {
-        unimplemented!()
+    fn get_type(&self) -> &'static str {
+        "srm::static_core::StaticCore"
     }
 
-    fn subscribe(&mut self, params: ffi::SubscribeParams)
+    fn subscribe(&self, params: ffi::SubscribeParams)
     -> Result<Subscriber, StaticCoreError> {
-        unimplemented!()
+        assert!(params.callback.is_some());
+
+        let name = unsafe { ffi_to_str(params.topic) }.unwrap();
+        let channel = self.get_channel(name, params.msg_type)?;
+
+        Subscriber::new(channel, params.callback.unwrap(), params.arg)
+            .ok_or(StaticCoreError::ChannelFull)
     }
 
-    fn advertise(&mut self, params: ffi::AdvertiseParams) -> Result<Self::Publisher, Self::Error> {
-        unimplemented!()
+    fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
+        let name = unsafe { ffi_to_str(params.topic) }.unwrap();
+        let channel = self.get_channel(name, params.msg_type)?;
+
+        Ok(Publisher{ channel })
     }
 
     srm_core_impl!(StaticCore);
@@ -65,11 +111,11 @@ impl core::Publisher for Publisher {
     type Error = StaticCoreError;
 
     fn get_channel_name(&self) -> &str {
-        unimplemented!()
+        self.channel.name()
     }
 
     fn get_channel_type(&self) -> u64 {
-        unimplemented!()
+        self.channel.msg_type()
     }
 
     fn publish(&mut self, builder: alloc::CacheAlignedBuilder) -> Result<(), StaticCoreError> {
@@ -84,9 +130,7 @@ impl core::Publisher for Publisher {
         Ok(())
     }
 
-    fn into_ffi(self) -> ffi::Publisher {
-        unimplemented!()
-    }
+    srm_publisher_impl!(Publisher);
 }
 
 pub struct Subscriber {
@@ -117,9 +161,7 @@ impl core::Subscriber for Subscriber {
         self.channel.msg_type()
     }
 
-    fn into_ffi(self) -> ffi::Subscriber {
-        unimplemented!()
-    }
+    srm_subscriber_impl!(Subscriber);
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -127,6 +169,8 @@ pub enum StaticCoreError {
     OutOfMemory = 1,
     ChannelDisconnected,
     SubscriberDisconnected,
+    ChannelFull,
+    ChannelTypeDiffers,
 }
 
 impl core::Error for StaticCoreError {
@@ -135,6 +179,8 @@ impl core::Error for StaticCoreError {
             1 => StaticCoreError::OutOfMemory,
             2 => StaticCoreError::ChannelDisconnected,
             3 => StaticCoreError::SubscriberDisconnected,
+            4 => StaticCoreError::ChannelFull,
+            5 => StaticCoreError::ChannelTypeDiffers,
             x => panic!("unknown code to construct StaticCoreError from: {}", x),
         }
     }
@@ -148,6 +194,8 @@ impl core::Error for StaticCoreError {
             StaticCoreError::OutOfMemory => "out of memory",
             StaticCoreError::ChannelDisconnected => "channel disconnected",
             StaticCoreError::SubscriberDisconnected => "subscriber disconnected",
+            StaticCoreError::ChannelFull => "channel has maximum subscribers",
+            StaticCoreError::ChannelTypeDiffers => "channel exists, but has differing message type",
         }
     }
 }
