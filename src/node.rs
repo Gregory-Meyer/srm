@@ -44,19 +44,19 @@ impl<'c, 'v> Node<'c, 'v> {
     pub fn new<C: core::Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
         let mut node = Node{ impl_ptr: ptr::null_mut(), vptr, phantom: PhantomData };
 
-        let err = (node.vptr.create)(core.as_ffi(), &mut node.impl_ptr);
+        let err = unsafe { (node.vptr.create)(core.as_ffi(), &mut node.impl_ptr) };
         node.to_result(err).map(|_| node)
     }
 
     /// Tells the node to begin computation. Will not return until the node shuts down.
     pub fn run(&self) -> Result<(), ErrorCode> {
-        let err = (self.vptr.run)(self.impl_ptr);
+        let err = unsafe { (self.vptr.run)(self.impl_ptr) };
         self.to_result(err)
     }
 
     /// Tells the node to stop computation. Should not block.
     pub fn stop(&self) -> Result<(), ErrorCode> {
-        let err = (self.vptr.stop)(self.impl_ptr);
+        let err = unsafe { (self.vptr.stop)(self.impl_ptr) };
         self.to_result(err)
     }
 
@@ -99,7 +99,7 @@ impl<'c, 'v> Drop for Node<'c, 'v> {
     ///
     /// Panics if the call to vptr.destroy returns nonzero.
     fn drop(&mut self) {
-        match (self.vptr.destroy)(self.impl_ptr) {
+        match unsafe { (self.vptr.destroy)(self.impl_ptr) } {
             0 => return,
             x => panic!("couldn't drop node {:p}: {} ({})", self.impl_ptr,
                         self.get_err_msg(x).unwrap(), x),
@@ -108,11 +108,12 @@ impl<'c, 'v> Drop for Node<'c, 'v> {
 }
 
 /// Identical to ffi::NodeVtbl, but with all members guaranteed non-null.
+#[repr(C)]
 pub struct Vtbl {
-    create: extern "C" fn(ffi::Core, *mut *mut c_void) -> c_int,
-    destroy: extern "C" fn(*mut c_void) -> c_int,
-    run: extern "C" fn(*mut c_void) -> c_int,
-    stop: extern "C" fn(*mut c_void) -> c_int,
-    get_type: extern "C" fn(*const c_void) -> ffi::StrView,
-    get_err_msg: extern "C" fn(*const c_void, c_int) -> ffi::StrView,
+    pub create: unsafe extern "C" fn(ffi::Core, *mut *mut c_void) -> c_int,
+    pub destroy: unsafe extern "C" fn(*mut c_void) -> c_int,
+    pub run: unsafe extern "C" fn(*mut c_void) -> c_int,
+    pub stop: unsafe extern "C" fn(*mut c_void) -> c_int,
+    pub get_type: unsafe extern "C" fn(*const c_void) -> ffi::StrView,
+    pub get_err_msg: unsafe extern "C" fn(*const c_void, c_int) -> ffi::StrView,
 }
