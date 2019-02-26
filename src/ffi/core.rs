@@ -27,8 +27,8 @@ use libc::{c_int, c_void};
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Core {
-    impl_ptr: *mut c_void,
-    vptr: *const CoreVtbl,
+    pub impl_ptr: *mut c_void,
+    pub vptr: *const CoreVtbl,
 }
 
 #[repr(C)]
