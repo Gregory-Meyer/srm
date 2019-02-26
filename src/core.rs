@@ -51,8 +51,6 @@ pub trait Publisher {
 
     fn publish(&mut self, builder: Builder<Self::Allocator>) -> Result<(), Self::Error>;
 
-    fn disconnect(&mut self) -> Result<(), Self::Error>;
-
     fn into_ffi(self) -> ffi::Publisher;
 }
 
@@ -62,8 +60,6 @@ pub trait Subscriber {
     fn get_channel_name(&self) -> &str;
 
     fn get_channel_type(&self) -> u64;
-
-    fn disconnect(&mut self) -> Result<(), Self::Error>;
 
     fn into_ffi(self) -> ffi::Subscriber;
 }
@@ -181,6 +177,11 @@ pub unsafe extern "C" fn get_channel_type_entry<P: Publisher>(impl_ptr: *const c
 pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
                                                      publish_fn: Option<ffi::PublishFn>,
                                                      arg: *mut c_void) -> c_int {
+    assert!(!impl_ptr.is_null());
+    assert!(publish_fn.is_some());
+
+    let publisher = &mut *(impl_ptr as *mut P);
+
     unimplemented!()
 }
 
