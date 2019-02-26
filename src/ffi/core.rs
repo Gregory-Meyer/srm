@@ -50,7 +50,7 @@ pub struct Subscriber {
 pub struct SubscribeParams {
     pub msg_type: MsgType,
     pub topic: StrView,
-    pub callback: SubscribeCallback,
+    pub callback: Option<SubscribeCallback>,
     pub arg: *mut c_void,
 }
 
@@ -75,7 +75,7 @@ pub struct CoreVtbl {
 pub struct PublisherVtbl {
     pub get_channel_name: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
     pub get_channel_type: Option<unsafe extern "C" fn(*const c_void) -> MsgType>,
-    pub publish: Option<unsafe extern "C" fn(*mut c_void, PublishFn, *mut c_void) -> c_int>,
+    pub publish: Option<unsafe extern "C" fn(*mut c_void, Option<PublishFn>, *mut c_void) -> c_int>,
     pub disconnect: Option<unsafe extern "C" fn(*mut c_void) -> c_int>,
     pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
 }
