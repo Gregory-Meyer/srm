@@ -42,7 +42,7 @@ pub trait Core {
 }
 
 pub trait Publisher {
-    type Allocator: Allocator;
+    type Allocator: Allocator + Default;
     type Error: Error;
 
     fn get_channel_name(&self) -> &str;
@@ -52,6 +52,8 @@ pub trait Publisher {
     fn publish(&mut self, builder: Builder<Self::Allocator>) -> Result<(), Self::Error>;
 
     fn into_ffi(self) -> ffi::Publisher;
+
+    fn builder_vtbl() -> *const ffi::MsgBuilderVtbl;
 }
 
 pub trait Subscriber {
@@ -112,7 +114,7 @@ macro_rules! srm_subscriber_impl {
 
 #[macro_export]
 macro_rules! srm_publisher_impl {
-    ($x:ty) => (
+    ($x:ty, $y:ty) => (
         fn into_ffi(self) -> ffi::Publisher {
             use libc::c_void;
 
@@ -126,6 +128,15 @@ macro_rules! srm_publisher_impl {
 
             ffi::Publisher{ impl_ptr: Box::into_raw(Box::new(self)) as *mut c_void,
                             vptr: &VTBL as *const ffi::PublisherVtbl }
+        }
+
+        fn builder_vtbl() -> *const ffi::MsgBuilderVtbl {
+            const VTBL: ffi::MsgBuilderVtbl = ffi::MsgBuilderVtbl{
+                alloc_segment: Some(core::publisher_ffi::alloc_segment_entry::<$y>),
+                get_err_msg: Some(core::publisher_ffi::get_alloc_err_msg::<$y>),
+            };
+
+            &VTBL as *const ffi::MsgBuilderVtbl
         }
     )
 }
@@ -231,7 +242,7 @@ pub mod publisher_ffi {
 
 use super::*;
 
-use std::mem;
+use std::{mem, ptr};
 
 use libc::{c_int, c_void};
 
@@ -258,8 +269,23 @@ pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
     assert!(publish_fn.is_some());
 
     let publisher = &mut *(impl_ptr as *mut P);
+    let mut builder: Builder<P::Allocator> = Builder::new(P::Allocator::default());
 
-    unimplemented!()
+    let ffi_builder = ffi::MsgBuilder{
+        impl_ptr: &mut builder as *mut _ as *mut c_void,
+        vptr: P::builder_vtbl(),
+    };
+
+    let res = (publish_fn.unwrap())(ffi_builder, arg);
+
+    if res != 0 {
+        return -res;
+    }
+
+    match publisher.publish(builder) {
+        Ok(()) => 0,
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn disconnect_entry<P: Publisher>(impl_ptr: *mut c_void) -> c_int {
@@ -272,6 +298,26 @@ pub unsafe extern "C" fn get_err_msg<P: Publisher>(_: *const c_void, err: c_int)
     let err_obj = P::Error::from_code(err);
 
     str_to_ffi(err_obj.what())
+}
+
+pub unsafe extern "C" fn alloc_segment_entry<A: Allocator>(
+    impl_ptr: *mut c_void, segment: *mut ffi::MsgSegment
+) -> c_int {
+    assert!(!segment.is_null());
+
+    let alloc = &mut *(impl_ptr as *mut A);
+
+    let allocd = alloc.allocate_segment((*segment).len as u32);
+
+    (*segment).data = allocd.0;
+    (*segment).len = allocd.1 as ffi::Index;
+
+    0
+}
+
+pub unsafe extern "C" fn get_alloc_err_msg<A: Allocator>(_: *const c_void, _: c_int)
+-> ffi::StrView {
+    ffi::StrView{ data: ptr::null(), len: 0 }
 }
 
 } // pub mod publisher

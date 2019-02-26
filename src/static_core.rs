@@ -185,7 +185,7 @@ impl core::Publisher for Publisher {
         Ok(())
     }
 
-    srm_publisher_impl!(Publisher);
+    srm_publisher_impl!(Publisher, alloc::CacheAlignedAllocator);
 }
 
 pub struct Subscriber {
