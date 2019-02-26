@@ -108,7 +108,6 @@ impl<'c, 'v> Drop for Node<'c, 'v> {
 }
 
 /// Identical to ffi::NodeVtbl, but with all members guaranteed non-null.
-#[repr(C)]
 pub struct Vtbl {
     pub create: unsafe extern "C" fn(ffi::Core, *mut *mut c_void) -> c_int,
     pub destroy: unsafe extern "C" fn(*mut c_void) -> c_int,
