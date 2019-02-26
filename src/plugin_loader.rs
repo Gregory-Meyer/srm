@@ -71,6 +71,10 @@ impl PluginLoader {
     }
 }
 
+unsafe impl Send for PluginLoader { }
+
+unsafe impl Sync for PluginLoader { }
+
 fn make_lib_name<S: AsRef<str>>(dirname: &Path, name: S) -> PathBuf {
     let mut pathname = dirname.to_path_buf();
 

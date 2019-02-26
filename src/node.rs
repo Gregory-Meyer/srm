@@ -49,7 +49,7 @@ impl<'c, 'v> Node<'c, 'v> {
     }
 
     /// Tells the node to begin computation. Will not return until the node shuts down.
-    pub fn run(&self) -> Result<(), ErrorCode> {
+    pub fn run(&self) -> Result<(), ErrorCode<'static>> {
         let err = unsafe { (self.vptr.run)(self.impl_ptr) };
         self.to_result(err)
     }

@@ -69,6 +69,10 @@ impl NodePlugin {
     }
 }
 
+unsafe impl Send for NodePlugin { }
+
+unsafe impl Sync for NodePlugin { }
+
 type GetVtblFn = unsafe extern "C" fn() -> *const ffi::NodeVtbl;
 
 #[derive(Debug)]

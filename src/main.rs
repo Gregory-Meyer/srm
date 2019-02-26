@@ -23,6 +23,7 @@
 #![allow(dead_code)]
 
 extern crate capnp;
+extern crate ctrlc;
 extern crate fnv;
 extern crate libc;
 extern crate libloading;
@@ -43,6 +44,31 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
+use std::{path::{PathBuf}, sync::{Arc, atomic::{AtomicBool, Ordering}}, thread};
+
 fn main() {
-    println!("Hello, world!");
+    let mut paths = Vec::new();
+    paths.push(PathBuf::from("."));
+    paths.push(PathBuf::from("/usr/local/lib"));
+    paths.push(PathBuf::from("/usr/lib"));
+
+    let mut core = static_core::StaticCore::new(paths);
+
+    core.add_node("publisher".to_string(), "publisher".to_string()).unwrap();
+    core.add_node("subscriber".to_string(), "subscriber".to_string()).unwrap();
+
+    let run_ptr = Arc::new(core);
+    let stop_ptr = run_ptr.clone();
+
+    let keep_running = AtomicBool::new(true);
+
+    thread::spawn(move || {
+        run_ptr.run();
+    });
+
+    ctrlc::set_handler(move || {
+        stop_ptr.stop();
+    }).unwrap();
+
+    while keep_running.load(Ordering::SeqCst) { }
 }

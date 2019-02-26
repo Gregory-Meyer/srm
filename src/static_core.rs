@@ -23,36 +23,91 @@
 use super::*;
 
 use std::{collections::hash_map::Entry, error::Error,
-          fmt::{self, Display, Formatter}, sync::{Arc, Weak}};
+          fmt::{self, Display, Formatter}, path::PathBuf, sync::{Arc, Weak}};
 
 use capnp::{message::{Allocator, Builder}, OutputSegments, Word};
 use fnv::{FnvBuildHasher, FnvHashMap};
 use libc::{c_int, c_void, ptrdiff_t};
 use lock_api::RwLockUpgradableReadGuard;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Condvar, Mutex, RwLock};
 use rayon::prelude::*;
 
-pub struct StaticCore {
+pub struct StaticCore<'a> {
+    plugins: plugin_loader::PluginLoader,
     channels: Mutex<FnvHashMap<String, Weak<Channel>>>,
+    nodes: FnvHashMap<String, Arc<node::Node<'a, 'a>>>,
+    joined: Mutex<bool>,
+    joined_cv: Condvar,
 }
 
-impl StaticCore {
-    fn get_channel(&self, name: &str, msg_type: u64) -> Result<Arc<Channel>, StaticCoreError> {
+impl<'a> StaticCore<'a> {
+    pub fn new(paths: Vec<PathBuf>) -> StaticCore<'a> {
+        StaticCore{ plugins: plugin_loader::PluginLoader::new(paths),
+                    channels: Mutex::new(FnvHashMap::with_hasher(FnvBuildHasher::default())),
+                    nodes: FnvHashMap::with_hasher(FnvBuildHasher::default()),
+                    joined: Mutex::new(false), joined_cv: Condvar::new() }
+    }
+
+    pub fn add_node(&mut self, name: String, tp: String) -> Result<(), NodeError> {
+        // how is this safe?
+        // Core functions only read or modify channels
+        // in other words, we're orthogonally reading/modifying self
+        // self.plugins/self.nodes are accessed here
+        // aliased is used to modify self.channels
+        let vptr = self.plugins.load(tp)
+            .map_err(|e| NodeError::Load(e))?
+            .vptr() as *const node::Vtbl;
+
+        let aliased = unsafe { &mut *(self as *mut StaticCore) };
+        let node = node::Node::new(aliased, unsafe { &*vptr })
+            .map_err(|e| NodeError::Start(e))?;
+
+        self.nodes.insert(name, Arc::new(node));
+
+        Ok(())
+    }
+
+    pub fn run(&self) {
+        let nodes: Vec<_> = self.nodes.values().cloned().collect();
+
+        crossbeam::scope(move |s| {
+            for node in nodes.into_iter() {
+                s.spawn(move |_| node.run());
+            }
+        }).unwrap();
+
+        let mut joined = self.joined.lock();
+        *joined = true;
+
+        self.joined_cv.notify_all();
+    }
+
+    pub fn stop(&self) {
+        for node in self.nodes.values() {
+            node.stop().unwrap();
+        }
+
+        let mut joined = self.joined.lock();
+
+        while !*joined {
+            self.joined_cv.wait(&mut joined);
+        }
+    }
+
+    fn get_channel(&self, name: String, msg_type: u64) -> Result<Arc<Channel>, StaticCoreError> {
         let mut channels = self.channels.lock();
 
-        let make_channel = || Arc::new(Channel::new(name.to_string(), msg_type));
+        let make_channel = |n| Arc::new(Channel::new(n, msg_type));
 
-        match channels.entry(name.to_string()) {
+        match channels.entry(name) {
             Entry::Vacant(e) => {
-                let channel = make_channel();
+                let channel = make_channel(e.key().clone());
                 e.insert(Arc::downgrade(&channel));
 
                 Ok(channel)
             },
             Entry::Occupied(mut e) => {
-                let value = e.get_mut();
-
-                match value.upgrade() {
+                match e.get_mut().upgrade() {
                     Some(c) => {
                         if c.msg_type() != msg_type {
                             return Err(StaticCoreError::ChannelTypeDiffers);
@@ -61,8 +116,8 @@ impl StaticCore {
                         Ok(c)
                     }
                     None => {
-                        let channel = make_channel(); // all subscribers destroyed
-                        *value = Arc::downgrade(&channel);
+                        let channel = make_channel(e.key().clone()); // all subscribers destroyed
+                        e.insert(Arc::downgrade(&channel));
 
                         Ok(channel)
                     },
@@ -72,7 +127,7 @@ impl StaticCore {
     }
 }
 
-impl core::Core for StaticCore {
+impl<'a> core::Core for StaticCore<'a> {
     type Error = StaticCoreError;
     type Publisher = Publisher;
     type Subscriber = Subscriber;
@@ -85,7 +140,7 @@ impl core::Core for StaticCore {
     -> Result<Subscriber, StaticCoreError> {
         assert!(params.callback.is_some());
 
-        let name = unsafe { ffi_to_str(params.topic) }.unwrap();
+        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
         let channel = self.get_channel(name, params.msg_type)?;
 
         Subscriber::new(channel, params.callback.unwrap(), params.arg)
@@ -93,7 +148,7 @@ impl core::Core for StaticCore {
     }
 
     fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
-        let name = unsafe { ffi_to_str(params.topic) }.unwrap();
+        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
         let channel = self.get_channel(name, params.msg_type)?;
 
         Ok(Publisher{ channel })
@@ -288,6 +343,23 @@ impl Channel {
     }
 }
 
+#[derive(Debug)]
+pub enum NodeError {
+    Load(node_plugin::LoadError),
+    Start(ErrorCode<'static>),
+}
+
+impl Error for NodeError { }
+
+impl Display for NodeError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            NodeError::Load(e) => write!(f, "load error: {}", e),
+            NodeError::Start(e) => write!(f, "start error: {}", e),
+        }
+    }
+}
+
 fn slice_to_msg_view(slice: &[Word]) -> ffi::MsgSegmentView {
     assert!(slice.len() < ptrdiff_t::max_value() as usize);
 
@@ -297,6 +369,14 @@ fn slice_to_msg_view(slice: &[Word]) -> ffi::MsgSegmentView {
 fn slice_to_msg(slice: &[ffi::MsgSegmentView], msg_type: u64) -> ffi::MsgView {
     ffi::MsgView{ segments: slice.as_ptr(), num_segments: slice.len() as ffi::Index, msg_type }
 }
+
+struct VeryUnsafePtr<T> {
+    ptr: *const T,
+}
+
+unsafe impl<T> Send for VeryUnsafePtr<T> { }
+
+unsafe impl<T> Sync for VeryUnsafePtr<T> { }
 
 #[derive(Copy, Clone, Debug)]
 struct Callback {
