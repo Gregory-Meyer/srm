@@ -48,6 +48,12 @@ unsafe impl Allocator for CacheAlignedAllocator {
     }
 }
 
+impl Default for CacheAlignedAllocator {
+    fn default() -> CacheAlignedAllocator {
+        CacheAlignedAllocator{ segments: Vec::new() }
+    }
+}
+
 impl Drop for CacheAlignedAllocator {
     /// Deallocates all allocated message segments.
     fn drop(&mut self) {
