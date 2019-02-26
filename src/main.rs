@@ -31,7 +31,6 @@ extern crate parking_lot;
 extern crate rayon;
 
 pub mod alloc;
-pub mod channel;
 pub mod core;
 pub mod error_code;
 pub mod ffi;
