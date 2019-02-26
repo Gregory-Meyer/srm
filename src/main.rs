@@ -48,14 +48,16 @@ use std::{path::{PathBuf}, sync::{Arc, atomic::{AtomicBool, Ordering}}, thread};
 
 fn main() {
     let mut paths = Vec::new();
-    paths.push(PathBuf::from("."));
-    paths.push(PathBuf::from("/usr/local/lib"));
-    paths.push(PathBuf::from("/usr/lib"));
+    paths.push(PathBuf::from("./"));
+    paths.push(PathBuf::from("/usr/local/lib/"));
+    paths.push(PathBuf::from("/usr/lib/"));
 
     let mut core = static_core::StaticCore::new(paths);
 
-    core.add_node("publisher".to_string(), "publisher".to_string()).unwrap();
-    core.add_node("subscriber".to_string(), "subscriber".to_string()).unwrap();
+    core.add_node("publisher".to_string(), "publisher".to_string())
+        .expect("couldn't find publisher");
+    core.add_node("subscriber".to_string(), "subscriber".to_string())
+        .expect("couldn't find subscriber");
 
     let run_ptr = Arc::new(core);
     let stop_ptr = run_ptr.clone();
@@ -68,7 +70,7 @@ fn main() {
 
     ctrlc::set_handler(move || {
         stop_ptr.stop();
-    }).unwrap();
+    }).expect("couldn't set ^C handler");
 
     while keep_running.load(Ordering::SeqCst) { }
 }

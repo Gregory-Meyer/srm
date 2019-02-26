@@ -61,7 +61,11 @@ impl PluginLoader {
         for pathname in paths.iter().map(|p| make_lib_name(p, name)) {
             let lib = match Library::new(&pathname) {
                 Ok(l) => l,
-                Err(_) => continue,
+                Err(e) => {
+                    eprintln!("failed to load library at {}: {}", pathname.display(), e);
+
+                    continue;
+                }
             };
 
             return node_plugin::NodePlugin::new(lib);
