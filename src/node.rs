@@ -35,6 +35,10 @@ pub struct Node<'c, 'v: 'c> {
     phantom: PhantomData<&'c mut c_void>,
 }
 
+unsafe impl<'c, 'v> Send for Node<'c, 'v> { }
+
+unsafe impl<'c, 'v> Sync for Node<'c, 'v> { }
+
 impl<'c, 'v> Node<'c, 'v> {
     /// Creates a new Node from the provided core and vtable.
     pub fn new<C: core::Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
