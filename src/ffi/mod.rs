@@ -22,12 +22,10 @@
 
 use libc::{c_int, c_void, ptrdiff_t};
 
-pub use capnp::Word;
-
 pub type MsgType = u64;
 pub type Index = ptrdiff_t;
-pub type SubscribeCallback = unsafe extern "C" fn(Core, MsgView, *mut c_void) -> c_int;
-pub type PublishFn = unsafe extern "C" fn(Core, MsgBuilder, *mut c_void) -> c_int;
+pub type SubscribeCallback = unsafe extern "C" fn(MsgView, *mut c_void) -> c_int;
+pub type PublishFn = unsafe extern "C" fn(MsgBuilder, *mut c_void) -> c_int;
 
 pub mod core;
 pub mod msg;

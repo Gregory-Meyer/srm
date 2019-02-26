@@ -50,8 +50,8 @@ typedef struct SrmMsgBuilder SrmMsgBuilder;
 
 typedef struct SrmMsgBuilderVtbl SrmMsgBuilderVtbl;
 
-typedef int (*SrmSubscribeCallback)(SrmCore core, SrmMsgView msg, void *arg);
-typedef int (*SrmPublishFn)(SrmCore core, SrmMsgBuilder builder, void *arg);
+typedef int (*SrmSubscribeCallback)(SrmMsgView msg, void *arg);
+typedef int (*SrmPublishFn)(SrmMsgBuilder builder, void *arg);
 
 typedef struct SrmSubscribeParams SrmSubscribeParams;
 typedef struct SrmAdvertiseParams SrmAdvertiseParams;
