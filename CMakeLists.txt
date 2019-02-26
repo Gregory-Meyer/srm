@@ -10,13 +10,7 @@ set(CMAKE_C_STANDARD 90)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-include_directories(include src external/tbb/include)
+include_directories(include src)
 
-add_subdirectory(external/tbb)
-
-set(SRM_SOURCES src/err.cpp src/expected.cpp src/immobile.cpp
-                src/node_plugin.cpp src/plat.cpp src/shared_obj.cpp
-                src/word_arr.cpp)
-
-add_executable(srm ${SRM_SOURCES})
-target_link_libraries(srm tbb_static)
+add_library(srm-publisher STATIC src/publisher.cpp)
+add_library(srm-subscriber STATIC src/subscriber.cpp)
