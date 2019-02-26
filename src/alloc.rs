@@ -32,6 +32,10 @@ pub struct CacheAlignedAllocator {
     segments: Vec<(*mut capnp::Word, usize)>,
 }
 
+unsafe impl Send for CacheAlignedAllocator { }
+
+unsafe impl Sync for CacheAlignedAllocator { }
+
 unsafe impl Allocator for CacheAlignedAllocator {
     /// Allocates segments that are multiples of 16 words (128 bytes) long.
     ///
