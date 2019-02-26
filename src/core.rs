@@ -34,9 +34,9 @@ pub trait Core {
 
     fn get_type(&self) -> &str;
 
-    fn subscribe(&mut self, params: ffi::SubscribeParams) -> Result<Self::Subscriber, Self::Error>;
+    fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Self::Subscriber, Self::Error>;
 
-    fn advertise(&mut self, params: ffi::AdvertiseParams) -> Result<Self::Publisher, Self::Error>;
+    fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Self::Publisher, Self::Error>;
 
     fn as_ffi(&mut self) -> ffi::Core;
 }
@@ -87,6 +87,45 @@ macro_rules! srm_core_impl {
 
             ffi::Core{ impl_ptr: self as *mut $x as *mut c_void,
                        vptr: &VTBL as *const ffi::CoreVtbl }
+        }
+    )
+}
+
+#[macro_export]
+macro_rules! srm_subscriber_impl {
+    ($x:ty) => (
+        fn into_ffi(self) -> ffi::Subscriber {
+            use libc::c_void;
+
+            const VTBL: ffi::SubscriberVtbl = ffi::SubscriberVtbl{
+                get_channel_name: Some(core::subscriber_ffi::get_channel_name_entry::<$x>),
+                get_channel_type: Some(core::subscriber_ffi::get_channel_type_entry::<$x>),
+                disconnect: Some(core::subscriber_ffi::disconnect_entry::<$x>),
+                get_err_msg: Some(core::subscriber_ffi::get_err_msg::<$x>),
+            };
+
+            ffi::Subscriber{ impl_ptr: Box::into_raw(Box::new(self)) as *mut c_void,
+                             vptr: &VTBL as *const ffi::SubscriberVtbl }
+        }
+    )
+}
+
+#[macro_export]
+macro_rules! srm_publisher_impl {
+    ($x:ty) => (
+        fn into_ffi(self) -> ffi::Publisher {
+            use libc::c_void;
+
+            const VTBL: ffi::PublisherVtbl = ffi::PublisherVtbl{
+                get_channel_name: Some(core::publisher_ffi::get_channel_name_entry::<$x>),
+                get_channel_type: Some(core::publisher_ffi::get_channel_type_entry::<$x>),
+                disconnect: Some(core::publisher_ffi::disconnect_entry::<$x>),
+                publish: Some(core::publisher_ffi::publish_entry::<$x>),
+                get_err_msg: Some(core::publisher_ffi::get_err_msg::<$x>),
+            };
+
+            ffi::Publisher{ impl_ptr: Box::into_raw(Box::new(self)) as *mut c_void,
+                            vptr: &VTBL as *const ffi::PublisherVtbl }
         }
     )
 }
@@ -146,15 +185,53 @@ pub unsafe extern "C" fn get_err_msg<C: Core>(
     ffi::StrView{ data: msg.as_ptr() as *const c_char, len: msg.len() as ptrdiff_t }
 }
 
-} // mod core_ffi
+} // pub mod core_ffi
 
-mod subscriber_ffi {
-
-}
-
-mod publisher_ffi {
+pub mod subscriber_ffi {
 
 use super::*;
+
+use std::mem;
+
+use libc::{c_int, c_void};
+
+pub unsafe extern "C" fn get_channel_name_entry<S: Subscriber>(impl_ptr: *const c_void)
+-> ffi::StrView {
+    assert!(!impl_ptr.is_null());
+
+    let name = (*(impl_ptr as *const S)).get_channel_name();
+
+    str_to_ffi(name)
+}
+
+pub unsafe extern "C" fn get_channel_type_entry<S: Subscriber>(impl_ptr: *const c_void) -> u64 {
+    assert!(!impl_ptr.is_null());
+
+    (*(impl_ptr as *const S)).get_channel_type()
+}
+
+pub unsafe extern "C" fn disconnect_entry<S: Subscriber>(impl_ptr: *mut c_void) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    mem::drop(Box::from_raw(impl_ptr as *mut S));
+
+    0
+}
+
+pub unsafe extern "C" fn get_err_msg<S: Subscriber>(_: *const c_void, err: c_int)
+-> ffi::StrView {
+    let err_obj = S::Error::from_code(err);
+
+    str_to_ffi(err_obj.what())
+}
+
+} // pub mod subscriber_ffi
+
+pub mod publisher_ffi {
+
+use super::*;
+
+use std::mem;
 
 use libc::{c_int, c_void};
 
@@ -185,6 +262,16 @@ pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
     unimplemented!()
 }
 
-// pub unsafe extern "C" fn disconnect_entry(&mut self) -> Result<(), Self::Err> {}
+pub unsafe extern "C" fn disconnect_entry<P: Publisher>(impl_ptr: *mut c_void) -> c_int {
+    mem::drop(Box::from_raw(impl_ptr as *mut P));
+
+    0
+}
+
+pub unsafe extern "C" fn get_err_msg<P: Publisher>(_: *const c_void, err: c_int) -> ffi::StrView {
+    let err_obj = P::Error::from_code(err);
+
+    str_to_ffi(err_obj.what())
+}
 
 } // pub mod publisher
