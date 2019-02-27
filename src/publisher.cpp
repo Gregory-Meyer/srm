@@ -38,9 +38,10 @@ public:
     explicit Publisher(SrmCore core) noexcept : core_(core) {
         SrmAdvertiseParams params;
         params.msg_type = TYPE;
-        params.topic = SrmStrView{ "foo", 3 };
+        params.topic = SrmStrView{"foo", 3};
 
         [[gnu::unused]] const int res = core_.vptr->advertise(core_.impl_ptr, params, &publisher_);
+        assert(res == 0);
     }
 
     ~Publisher() {
@@ -54,12 +55,12 @@ public:
                 publisher_.vptr->publish(publisher_.impl_ptr, do_publish_entry, this);
             assert(res == 0);
 
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            // std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     }
 
     void stop() noexcept {
-        keep_running_.store(true);
+        keep_running_.store(false);
     }
 
     void do_publish(SrmMsgBuilder raw_builder) noexcept {
@@ -78,7 +79,7 @@ public:
 private:
     SrmCore core_;
     SrmPublisher publisher_;
-    std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(0);
+    std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(true);
 };
 
 extern "C" {
