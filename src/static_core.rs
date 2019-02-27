@@ -173,14 +173,14 @@ impl core::Publisher for Publisher {
         self.channel.msg_type()
     }
 
-    fn publish(&mut self, builder: alloc::CacheAlignedBuilder) -> Result<(), StaticCoreError> {
+    fn publish(&mut self, allocator: alloc::CacheAlignedAllocator) -> Result<(), StaticCoreError> {
         let weak_count = Arc::weak_count(&self.channel);
 
         if weak_count == 0 {
             return Err(StaticCoreError::ChannelDisconnected);
         }
 
-        self.channel.publish(builder);
+        self.channel.publish(allocator);
 
         Ok(())
     }
@@ -319,16 +319,8 @@ impl Channel {
         callbacks.0.remove(&id).map(|_| { })
     }
 
-    pub fn publish<A: Allocator + Send>(&self, builder: Builder<A>) -> usize {
-        let segments = match builder.get_segments_for_output() {
-            OutputSegments::SingleSegment(segment) => {
-                vec![slice_to_msg_view(segment[0])]
-            },
-            OutputSegments::MultiSegment(segments) => {
-                segments.iter().map(|s| slice_to_msg_view(*s)).collect()
-            }
-        };
-
+    pub fn publish(&self, allocator: alloc::CacheAlignedAllocator) -> usize {
+        let segments = allocator.as_view();
         let msg = slice_to_msg(&segments, self.msg_type);
 
         let callbacks = self.callbacks.read();

@@ -20,6 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use super::*;
+
 use std::{alloc::{self, Layout}, mem};
 
 use capnp::message::{Allocator, Builder};
@@ -30,6 +32,14 @@ pub type CacheAlignedBuilder = Builder<CacheAlignedAllocator>;
 /// Allocates cache-aligned message segments.
 pub struct CacheAlignedAllocator {
     segments: Vec<(*mut capnp::Word, usize)>,
+}
+
+impl CacheAlignedAllocator {
+    pub fn as_view(&self) -> Vec<ffi::MsgSegmentView> {
+        self.segments.iter().map(|(p, l)| {
+            ffi::MsgSegmentView{data: *p, len: *l as ffi::Index}
+        }).collect()
+    }
 }
 
 unsafe impl Send for CacheAlignedAllocator { }

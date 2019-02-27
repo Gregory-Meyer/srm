@@ -49,11 +49,11 @@ pub trait Publisher {
 
     fn get_channel_type(&self) -> u64;
 
-    fn publish(&mut self, builder: Builder<Self::Allocator>) -> Result<(), Self::Error>;
+    fn publish(&mut self, allocator: Self::Allocator) -> Result<(), Self::Error>;
 
     fn into_ffi(self) -> ffi::Publisher;
 
-    fn builder_vtbl() -> *const ffi::MsgBuilderVtbl;
+    fn allocator_vtbl() -> *const ffi::MsgBuilderVtbl;
 }
 
 pub trait Subscriber {
@@ -126,11 +126,13 @@ macro_rules! srm_publisher_impl {
                 get_err_msg: Some(core::publisher_ffi::get_err_msg::<$x>),
             };
 
-            ffi::Publisher{ impl_ptr: Box::into_raw(Box::new(self)) as *mut c_void,
+            let impl_ptr = Box::into_raw(Box::new(self));
+
+            ffi::Publisher{ impl_ptr: impl_ptr as *mut c_void,
                             vptr: &VTBL as *const ffi::PublisherVtbl }
         }
 
-        fn builder_vtbl() -> *const ffi::MsgBuilderVtbl {
+        fn allocator_vtbl() -> *const ffi::MsgBuilderVtbl {
             const VTBL: ffi::MsgBuilderVtbl = ffi::MsgBuilderVtbl{
                 alloc_segment: Some(core::publisher_ffi::alloc_segment_entry::<$y>),
                 get_err_msg: Some(core::publisher_ffi::get_alloc_err_msg::<$y>),
@@ -269,11 +271,11 @@ pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
     assert!(publish_fn.is_some());
 
     let publisher = &mut *(impl_ptr as *mut P);
-    let mut builder: Builder<P::Allocator> = Builder::new(P::Allocator::default());
+    let mut alloc = P::Allocator::default();
 
     let ffi_builder = ffi::MsgBuilder{
-        impl_ptr: &mut builder as *mut _ as *mut c_void,
-        vptr: P::builder_vtbl(),
+        impl_ptr: &mut alloc as *mut _ as *mut c_void,
+        vptr: P::allocator_vtbl(),
     };
 
     let res = (publish_fn.unwrap())(ffi_builder, arg);
@@ -282,7 +284,7 @@ pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
         return -res;
     }
 
-    match publisher.publish(builder) {
+    match publisher.publish(alloc) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
