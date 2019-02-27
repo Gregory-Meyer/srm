@@ -44,7 +44,7 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
-use std::{path::{PathBuf}, sync::{Arc, atomic::{AtomicBool, Ordering}}, thread};
+use std::{path::{PathBuf}, sync::Arc, thread};
 
 fn main() {
     let mut paths = Vec::new();
@@ -62,9 +62,7 @@ fn main() {
     let run_ptr = Arc::new(core);
     let stop_ptr = run_ptr.clone();
 
-    let keep_running = AtomicBool::new(true);
-
-    thread::spawn(move || {
+    let handle = thread::spawn(move || {
         run_ptr.run();
     });
 
@@ -72,5 +70,5 @@ fn main() {
         stop_ptr.stop();
     }).expect("couldn't set ^C handler");
 
-    while keep_running.load(Ordering::SeqCst) { }
+    handle.join().unwrap();
 }
