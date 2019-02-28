@@ -362,14 +362,6 @@ fn slice_to_msg(slice: &[ffi::MsgSegmentView], msg_type: u64) -> ffi::MsgView {
     ffi::MsgView{ segments: slice.as_ptr(), num_segments: slice.len() as ffi::Index, msg_type }
 }
 
-struct VeryUnsafePtr<T> {
-    ptr: *const T,
-}
-
-unsafe impl<T> Send for VeryUnsafePtr<T> { }
-
-unsafe impl<T> Sync for VeryUnsafePtr<T> { }
-
 #[derive(Copy, Clone, Debug)]
 struct Callback {
     f: ffi::SubscribeCallback,
