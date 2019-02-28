@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <fstream>
 #include <iostream>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -18,6 +20,9 @@ constexpr std::uint64_t TYPE = 0x93c2012830d68d3cull;
 class Subscriber {
 public:
     explicit Subscriber(SrmCore core) noexcept : core_(core) {
+        std::ios_base::sync_with_stdio(false);
+        std::cin.tie(nullptr);
+
         SrmSubscribeParams params;
         params.msg_type = TYPE;
         params.topic = SrmStrView{ "foo", 3 };
@@ -51,8 +56,12 @@ public:
         capnp::SegmentArrayMessageReader segment_reader({segments.data(), segments.size()});
         Message::Reader reader = segment_reader.getRoot<Message>();
 
-        std::cout.write(reader.getMsg().begin(),
-                        static_cast<std::streamsize>(reader.getMsg().size())) << '\n';
+        const char *const data = reader.getMsg().begin();
+        const auto len = static_cast<std::streamsize>(reader.getMsg().size());
+
+        mtx_.lock();
+        std::cout.write(data, len) << '\n';
+        mtx_.unlock();
     }
 
     static int callback_entry(SrmMsgView msg, void *arg) noexcept {
@@ -65,6 +74,7 @@ private:
     SrmCore core_;
     SrmSubscriber subscriber_;
     std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(0);
+    std::mutex mtx_;
 };
 
 extern "C" {
