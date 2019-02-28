@@ -1,4 +1,4 @@
-path: ["./", "/usr/local/lib/", "/usr/lib/"]
+path: ["/usr/local/lib/", "/usr/lib/"]
 nodes:
   - ["pub0", "publisher"]
   - ["pub1", "publisher"]
