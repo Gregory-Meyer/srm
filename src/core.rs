@@ -69,6 +69,8 @@ pub trait Subscriber: Send {
 pub trait MessageBuilder: Send + Allocator {
     type Error: Error;
 
+    unsafe fn as_view(&self) -> Vec<ffi::MsgSegmentView>;
+
     fn as_ffi(&mut self) -> ffi::MsgBuilder;
 }
 

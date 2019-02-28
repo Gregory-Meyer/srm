@@ -39,12 +39,6 @@ impl CacheAlignedAllocator {
     pub fn new() -> CacheAlignedAllocator {
         CacheAlignedAllocator{ segments: Vec::new() }
     }
-
-    pub fn as_view(&self) -> Vec<ffi::MsgSegmentView> {
-        self.segments.iter().map(|(p, l)| {
-            ffi::MsgSegmentView{data: *p, len: *l as ffi::Index}
-        }).collect()
-    }
 }
 
 unsafe impl Send for CacheAlignedAllocator { }
@@ -65,6 +59,12 @@ unsafe impl Allocator for CacheAlignedAllocator {
 
 impl core::MessageBuilder for CacheAlignedAllocator {
     type Error = NullError;
+
+    unsafe fn as_view(&self) -> Vec<ffi::MsgSegmentView> {
+        self.segments.iter().map(|(p, l)| {
+            ffi::MsgSegmentView{data: *p, len: *l as ffi::Index}
+        }).collect()
+    }
 
     srm_message_builder_impl!(CacheAlignedAllocator);
 }
