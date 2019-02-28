@@ -25,7 +25,7 @@ use super::*;
 use std::{collections::hash_map::Entry, error::Error,
           fmt::{self, Display, Formatter}, path::PathBuf, sync::{Arc, Weak}};
 
-use capnp::{message::{Allocator, Builder}, OutputSegments, Word};
+use capnp::Word;
 use fnv::{FnvBuildHasher, FnvHashMap};
 use libc::{c_int, c_void, ptrdiff_t};
 use lock_api::RwLockUpgradableReadGuard;
@@ -270,18 +270,18 @@ struct Channel {
     name: String,
     msg_type: u64,
     max_num_callbacks: Option<usize>,
-    callbacks: RwLock<(FnvHashMap<usize, Callback>, usize)>,
+    callbacks: Arc<RwLock<(Vec<(usize, Callback)>, usize)>>,
 }
 
 impl Channel {
     pub fn new(name: String, msg_type: u64) -> Channel {
         Channel{ name, msg_type, max_num_callbacks: None,
-                 callbacks: RwLock::new((FnvHashMap::with_hasher(FnvBuildHasher::default()), 0)) }
+                 callbacks: Arc::new(RwLock::new((Vec::with_capacity(8), 0))) }
     }
 
     pub fn with_max_callbacks(name: String, msg_type: u64, max_num_callbacks: usize) -> Channel {
         Channel{ name, msg_type, max_num_callbacks: Some(max_num_callbacks),
-                 callbacks: RwLock::new((FnvHashMap::with_hasher(FnvBuildHasher::default()), 0)) }
+                 callbacks: Arc::new(RwLock::new((Vec::with_capacity(max_num_callbacks), 0))) }
     }
 
     pub fn name(&self) -> &str {
@@ -308,30 +308,58 @@ impl Channel {
         let id = callbacks.1;
         callbacks.1 += 1;
 
-        callbacks.0.insert(id, Callback::new(f, arg));
+        callbacks.0.push((id, Callback::new(f, arg)));
 
         Some(id)
     }
 
     pub fn remove_callback(&self, id: usize) -> Option<()> {
-        let mut callbacks = self.callbacks.write();
+        let callbacks = self.callbacks.upgradable_read();
 
-        callbacks.0.remove(&id).map(|_| { })
+        let index = match callbacks.0.iter().position(|(i, _)| *i == id) {
+            None => return None,
+            Some(i) => i,
+        };
+
+        let mut callbacks = RwLockUpgradableReadGuard::upgrade(callbacks);
+
+        callbacks.0.remove(index);
+
+        Some(())
     }
 
-    pub fn publish(&self, allocator: alloc::CacheAlignedAllocator) -> usize {
-        let segments = allocator.as_view();
-        let msg = slice_to_msg(&segments, self.msg_type);
+    pub fn publish(&self, allocator: alloc::CacheAlignedAllocator) {
+        let msg_type = self.msg_type;
 
-        let callbacks = self.callbacks.read();
-        callbacks.0.par_iter().for_each(|(_, v)| {
-            match unsafe { v.invoke(msg) } {
+        let segments = allocator.as_view();
+        let msg = slice_to_msg(&segments, msg_type);
+
+        let guard = self.callbacks.read();
+        guard.0.par_iter().for_each(|(_, c)| {
+            match unsafe { c.invoke(msg) } {
                 0 => (),
-                x => eprintln!("callback {:p} failed with errc {}", v.f, x),
+                x => eprintln!("callback {:p} failed with errc {}", c.f, x),
             }
         });
+    }
 
-        callbacks.0.len()
+    pub fn publish_nonblocking(&self, allocator: alloc::CacheAlignedAllocator) {
+        let callbacks = self.callbacks.clone();
+        let msg_type = self.msg_type;
+
+        rayon::spawn(move || {
+            let segments = allocator.as_view();
+            let msg = slice_to_msg(&segments, msg_type);
+
+            let guard = callbacks.read();
+
+            guard.0.par_iter().for_each(|(_, c)| {
+                match unsafe { c.invoke(msg) } {
+                    0 => (),
+                    x => eprintln!("callback {:p} failed with errc {}", c.f, x),
+                }
+            });
+        });
     }
 }
 
