@@ -21,13 +21,13 @@
 // SOFTWARE.
 
 use super::*;
+use self::core::MessageBuilder;
 
 use std::{collections::hash_map::Entry, error::Error,
           fmt::{self, Display, Formatter}, path::PathBuf, sync::{Arc, Weak}};
 
-use capnp::Word;
 use fnv::{FnvBuildHasher, FnvHashMap};
-use libc::{c_int, c_void, ptrdiff_t};
+use libc::{c_int, c_void};
 use lock_api::RwLockUpgradableReadGuard;
 use parking_lot::{Condvar, Mutex, RwLock};
 use rayon::prelude::*;
@@ -223,6 +223,12 @@ impl core::Subscriber for Subscriber {
     srm_subscriber_impl!(Subscriber);
 }
 
+impl Drop for Subscriber {
+    fn drop(&mut self) {
+        self.channel.remove_callback(self.id);
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 pub enum StaticCoreError {
     OutOfMemory = 1,
@@ -333,18 +339,8 @@ impl Channel {
     }
 
     pub fn publish(&self, allocator: alloc::CacheAlignedAllocator) {
-        let msg_type = self.msg_type;
-
-        let segments = allocator.as_view();
-        let msg = slice_to_msg(&segments, msg_type);
-
-        let guard = self.callbacks.read();
-        guard.0.par_iter().for_each(|(_, c)| {
-            match unsafe { c.invoke(msg) } {
-                0 => (),
-                x => eprintln!("callback {:p} failed with errc {}", c.f, x),
-            }
-        });
+        let callbacks = self.callbacks.read();
+        Channel::do_publish(allocator, &callbacks.0, self.msg_type);
     }
 
     pub fn publish_nonblocking(&self, allocator: alloc::CacheAlignedAllocator) {
@@ -352,17 +348,21 @@ impl Channel {
         let msg_type = self.msg_type;
 
         rayon::spawn(move || {
-            let segments = allocator.as_view();
-            let msg = slice_to_msg(&segments, msg_type);
-
             let guard = callbacks.read();
+            Channel::do_publish(allocator, &guard.0, msg_type)
+        });
+    }
 
-            guard.0.par_iter().for_each(|(_, c)| {
-                match unsafe { c.invoke(msg) } {
-                    0 => (),
-                    x => eprintln!("callback {:p} failed with errc {}", c.f, x),
-                }
-            });
+    fn do_publish(allocator: alloc::CacheAlignedAllocator,
+                  callbacks: &Vec<(usize, Callback)>, msg_type: u64) {
+        let segments = unsafe { allocator.as_view() };
+        let msg = slice_to_msg(&segments, msg_type);
+
+        callbacks.par_iter().for_each(|(_, c)| {
+            match unsafe { c.invoke(msg) } {
+                0 => (),
+                x => eprintln!("callback {:p} failed with errc {}", c.f, x),
+            }
         });
     }
 }
@@ -382,12 +382,6 @@ impl Display for NodeError {
             NodeError::Start(e) => write!(f, "start error: {}", e),
         }
     }
-}
-
-fn slice_to_msg_view(slice: &[Word]) -> ffi::MsgSegmentView {
-    assert!(slice.len() < ptrdiff_t::max_value() as usize);
-
-    ffi::MsgSegmentView{ data: slice.as_ptr(), len: slice.len() as ffi::Index }
 }
 
 fn slice_to_msg(slice: &[ffi::MsgSegmentView], msg_type: u64) -> ffi::MsgView {

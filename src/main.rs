@@ -20,8 +20,6 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#![allow(dead_code)]
-
 extern crate capnp;
 extern crate ctrlc;
 extern crate fnv;
