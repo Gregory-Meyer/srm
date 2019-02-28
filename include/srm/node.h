@@ -38,11 +38,12 @@ extern "C" {
 #endif
 
 struct SrmNodeVtbl {
-    int (*create_fn)(SrmCore core, void **node);
-    int (*destroy_fn)(SrmCore core, void *node);
-    int (*run_fn)(SrmCore core, void *node);
-    int (*stop_fn)(SrmCore core, void *node);
-    SrmStrView (*err_str_fn)(int err);
+    int (*create)(SrmCore, void**);
+    int (*destroy)(void*);
+    int (*run)(void*);
+    int (*stop)(void*);
+    SrmStrView (*get_type)(const void*);
+    SrmStrView (*get_err_msg)(const void*, int);
 };
 
 SRM_SHARED_OBJECT_EXPORT const SrmNodeVtbl* srm_Node_get_vtbl(void);

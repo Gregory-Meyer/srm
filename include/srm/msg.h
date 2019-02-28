@@ -48,38 +48,18 @@ struct SrmMsgSegmentView {
 struct SrmMsgView {
     const SrmMsgSegmentView *segments;
     SrmIndex num_segments;
-    SrmMsgType type;
+    SrmMsgType msg_type;
 };
 
 struct SrmMsgBuilder {
     void *impl_ptr;
-    const SrmMsgBuilderVtbl *vtbl;
+    const SrmMsgBuilderVtbl *vptr;
 };
 
 struct SrmMsgBuilderVtbl {
-    int (*alloc_segment)(void *impl_ptr, SrmMsgSegment *segment);
-    SrmStrView (*err_to_str)(int err);
+    int (*alloc_segment)(void*, SrmMsgSegment*);
+    SrmStrView (*get_err_msg)(const void*, int);
 };
-
-inline int srm_MsgBuilder_alloc_segment(SrmMsgBuilder builder, SrmMsgSegment *segment) {
-    assert(builder.impl_ptr);
-    assert(builder.vtbl);
-    assert(builder.vtbl->alloc_segment);
-    assert(builder.vtbl->err_to_str);
-    assert(segment);
-    assert(segment->len > 0);
-
-    return builder.vtbl->alloc_segment(builder.impl_ptr, segment);
-}
-
-inline SrmStrView srm_MsgBuilder_err_to_str(SrmMsgBuilder builder, int err) {
-    assert(builder.impl_ptr);
-    assert(builder.vtbl);
-    assert(builder.vtbl->alloc_segment);
-    assert(builder.vtbl->err_to_str);
-
-    return builder.vtbl->err_to_str(err);
-}
 
 #ifdef __cplusplus
 } // extern "C"
