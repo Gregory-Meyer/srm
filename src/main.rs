@@ -30,6 +30,8 @@ extern crate libloading;
 extern crate lock_api;
 extern crate parking_lot;
 extern crate rayon;
+extern crate serde;
+extern crate serde_yaml;
 
 pub mod alloc;
 pub mod core;
@@ -44,23 +46,22 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
-use std::{path::{PathBuf}, sync::Arc, thread};
+use std::{env, fs, path::{PathBuf}, sync::Arc, thread};
 
-macro_rules! path_vec {
-    ($($x:expr),*) => (
-        vec![$(PathBuf::from($x)),*]
-    );
-    ($($x:expr,)*) => (path_vec![$($x),*])
-}
+use serde::Deserialize;
 
 fn main() {
-    let paths = path_vec!["./", "/usr/local/lib/", "/usr/lib/"];
-    let mut core = static_core::StaticCore::new(paths);
+    let args: Vec<_> = env::args().collect();
+    let graph_pathname = &args[1];
+    let graph_string = fs::read_to_string(graph_pathname).expect("couldn't read node graph");
+    let graph: NodeGraph = serde_yaml::from_str(&graph_string).expect("couldn't parse node graph");
+    let mut core = static_core::StaticCore::new(graph.path);
 
-    core.add_node("publisher".to_string(), "publisher".to_string())
-        .expect("couldn't find publisher");
-    core.add_node("subscriber".to_string(), "subscriber".to_string())
-        .expect("couldn't find subscriber");
+    for (name, tp) in graph.nodes.into_iter() {
+        if let Err(e) = core.add_node(name.0, tp.0) {
+            panic!("couldn't add node: {}", e);
+        }
+    }
 
     let run_ptr = Arc::new(core);
     let stop_ptr = run_ptr.clone();
@@ -74,4 +75,16 @@ fn main() {
     }).expect("couldn't set ^C handler");
 
     handle.join().unwrap();
+}
+
+#[derive(Deserialize)]
+struct Name(String);
+
+#[derive(Deserialize)]
+struct Type(String);
+
+#[derive(Deserialize)]
+struct NodeGraph {
+    path: Vec<PathBuf>,
+    nodes: Vec<(Name, Type)>,
 }
