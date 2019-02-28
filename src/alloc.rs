@@ -22,9 +22,10 @@
 
 use super::*;
 
-use std::{alloc::{self, Layout}, mem};
+use std::{alloc::{self, Layout}, error::Error, fmt::{self, Display, Formatter}, mem};
 
 use capnp::message::{Allocator, Builder};
+use libc::c_int;
 
 /// Cache aligned message builder.
 pub type CacheAlignedBuilder = Builder<CacheAlignedAllocator>;
@@ -35,6 +36,10 @@ pub struct CacheAlignedAllocator {
 }
 
 impl CacheAlignedAllocator {
+    pub fn new() -> CacheAlignedAllocator {
+        CacheAlignedAllocator{ segments: Vec::new() }
+    }
+
     pub fn as_view(&self) -> Vec<ffi::MsgSegmentView> {
         self.segments.iter().map(|(p, l)| {
             ffi::MsgSegmentView{data: *p, len: *l as ffi::Index}
@@ -58,10 +63,10 @@ unsafe impl Allocator for CacheAlignedAllocator {
     }
 }
 
-impl Default for CacheAlignedAllocator {
-    fn default() -> CacheAlignedAllocator {
-        CacheAlignedAllocator{ segments: Vec::new() }
-    }
+impl core::MessageBuilder for CacheAlignedAllocator {
+    type Error = NullError;
+
+    srm_message_builder_impl!(CacheAlignedAllocator);
 }
 
 impl Drop for CacheAlignedAllocator {
@@ -73,6 +78,31 @@ impl Drop for CacheAlignedAllocator {
 
             unsafe { alloc::dealloc(*buf as *mut u8, layout) };
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct NullError();
+
+impl core::Error for NullError {
+    fn from_code(_: c_int) -> NullError {
+        NullError()
+    }
+
+    fn as_code(&self) -> c_int {
+        0
+    }
+
+    fn what(&self) -> &'static str {
+        "ok"
+    }
+}
+
+impl Error for NullError { }
+
+impl Display for NullError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "NullError")
     }
 }
 

@@ -24,10 +24,10 @@ use super::*;
 
 use std::error;
 
-use capnp::message::{Allocator, Builder};
+use capnp::message::Allocator;
 use libc::{c_char, c_int, ptrdiff_t};
 
-pub trait Core {
+pub trait Core: Send + Sync {
     type Error: Error;
     type Publisher: Publisher;
     type Subscriber: Subscriber;
@@ -41,22 +41,22 @@ pub trait Core {
     fn as_ffi(&mut self) -> ffi::Core;
 }
 
-pub trait Publisher {
-    type Allocator: Allocator + Default;
+pub trait Publisher: Send {
+    type Builder: MessageBuilder;
     type Error: Error;
 
     fn get_channel_name(&self) -> &str;
 
     fn get_channel_type(&self) -> u64;
 
-    fn publish(&mut self, allocator: Self::Allocator) -> Result<(), Self::Error>;
+    fn publish(&mut self, builder: Self::Builder) -> Result<(), Self::Error>;
 
     fn into_ffi(self) -> ffi::Publisher;
 
-    fn allocator_vtbl() -> *const ffi::MsgBuilderVtbl;
+    fn get_allocator(&self) -> Self::Builder;
 }
 
-pub trait Subscriber {
+pub trait Subscriber: Send {
     type Error: Error;
 
     fn get_channel_name(&self) -> &str;
@@ -64,6 +64,12 @@ pub trait Subscriber {
     fn get_channel_type(&self) -> u64;
 
     fn into_ffi(self) -> ffi::Subscriber;
+}
+
+pub trait MessageBuilder: Send + Allocator {
+    type Error: Error;
+
+    fn as_ffi(&mut self) -> ffi::MsgBuilder;
 }
 
 pub trait Error: error::Error {
@@ -114,7 +120,7 @@ macro_rules! srm_subscriber_impl {
 
 #[macro_export]
 macro_rules! srm_publisher_impl {
-    ($x:ty, $y:ty) => (
+    ($x:ty) => (
         fn into_ffi(self) -> ffi::Publisher {
             use libc::c_void;
 
@@ -131,14 +137,22 @@ macro_rules! srm_publisher_impl {
             ffi::Publisher{ impl_ptr: impl_ptr as *mut c_void,
                             vptr: &VTBL as *const ffi::PublisherVtbl }
         }
+    )
+}
 
-        fn allocator_vtbl() -> *const ffi::MsgBuilderVtbl {
+#[macro_export]
+macro_rules! srm_message_builder_impl {
+    ($x:ty) => (
+        fn as_ffi(&mut self) -> ffi::MsgBuilder {
+            use libc::c_void;
+
             const VTBL: ffi::MsgBuilderVtbl = ffi::MsgBuilderVtbl{
-                alloc_segment: Some(core::publisher_ffi::alloc_segment_entry::<$y>),
-                get_err_msg: Some(core::publisher_ffi::get_alloc_err_msg::<$y>),
+                alloc_segment: Some(core::message_builder_ffi::alloc_segment_entry::<$x>),
+                get_err_msg: Some(core::message_builder_ffi::get_err_msg::<$x>),
             };
 
-            &VTBL as *const ffi::MsgBuilderVtbl
+            ffi::MsgBuilder{ impl_ptr: self as *mut $x as *mut c_void,
+                             vptr: &VTBL as *const ffi::MsgBuilderVtbl }
         }
     )
 }
@@ -244,7 +258,7 @@ pub mod publisher_ffi {
 
 use super::*;
 
-use std::{mem, ptr};
+use std::mem;
 
 use libc::{c_int, c_void};
 
@@ -271,14 +285,9 @@ pub unsafe extern "C" fn publish_entry<P: Publisher>(impl_ptr: *mut c_void,
     assert!(publish_fn.is_some());
 
     let publisher = &mut *(impl_ptr as *mut P);
-    let mut alloc = P::Allocator::default();
+    let mut alloc = publisher.get_allocator();
 
-    let ffi_builder = ffi::MsgBuilder{
-        impl_ptr: &mut alloc as *mut _ as *mut c_void,
-        vptr: P::allocator_vtbl(),
-    };
-
-    let res = (publish_fn.unwrap())(ffi_builder, arg);
+    let res = (publish_fn.unwrap())(alloc.as_ffi(), arg);
 
     if res != 0 {
         return -res;
@@ -302,12 +311,20 @@ pub unsafe extern "C" fn get_err_msg<P: Publisher>(_: *const c_void, err: c_int)
     str_to_ffi(err_obj.what())
 }
 
-pub unsafe extern "C" fn alloc_segment_entry<A: Allocator>(
+} // pub mod publisher_ffi
+
+pub mod message_builder_ffi {
+
+use super::*;
+
+use libc::{c_int, c_void};
+
+pub unsafe extern "C" fn alloc_segment_entry<B: MessageBuilder>(
     impl_ptr: *mut c_void, segment: *mut ffi::MsgSegment
 ) -> c_int {
     assert!(!segment.is_null());
 
-    let alloc = &mut *(impl_ptr as *mut A);
+    let alloc = &mut *(impl_ptr as *mut B);
 
     let allocd = alloc.allocate_segment((*segment).len as u32);
 
@@ -317,9 +334,11 @@ pub unsafe extern "C" fn alloc_segment_entry<A: Allocator>(
     0
 }
 
-pub unsafe extern "C" fn get_alloc_err_msg<A: Allocator>(_: *const c_void, _: c_int)
+pub unsafe extern "C" fn get_err_msg<B: MessageBuilder>(_: *const c_void, err: c_int)
 -> ffi::StrView {
-    ffi::StrView{ data: ptr::null(), len: 0 }
+    let err_obj = B::Error::from_code(err);
+
+    str_to_ffi(err_obj.what())
 }
 
-} // pub mod publisher
+} // pub mod message_builder_ffi

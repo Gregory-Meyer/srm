@@ -162,7 +162,7 @@ pub struct Publisher {
 }
 
 impl core::Publisher for Publisher {
-    type Allocator = alloc::CacheAlignedAllocator;
+    type Builder = alloc::CacheAlignedAllocator;
     type Error = StaticCoreError;
 
     fn get_channel_name(&self) -> &str {
@@ -185,7 +185,11 @@ impl core::Publisher for Publisher {
         Ok(())
     }
 
-    srm_publisher_impl!(Publisher, alloc::CacheAlignedAllocator);
+    fn get_allocator(&self) -> alloc::CacheAlignedAllocator {
+        alloc::CacheAlignedAllocator::new()
+    }
+
+    srm_publisher_impl!(Publisher);
 }
 
 pub struct Subscriber {
