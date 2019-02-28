@@ -46,12 +46,15 @@ pub use self::util::*;
 
 use std::{path::{PathBuf}, sync::Arc, thread};
 
-fn main() {
-    let mut paths = Vec::new();
-    paths.push(PathBuf::from("./"));
-    paths.push(PathBuf::from("/usr/local/lib/"));
-    paths.push(PathBuf::from("/usr/lib/"));
+macro_rules! path_vec {
+    ($($x:expr),*) => (
+        vec![$(PathBuf::from($x)),*]
+    );
+    ($($x:expr,)*) => (path_vec![$($x),*])
+}
 
+fn main() {
+    let paths = path_vec!["./", "/usr/local/lib/", "/usr/lib/"];
     let mut core = static_core::StaticCore::new(paths);
 
     core.add_node("publisher".to_string(), "publisher".to_string())
