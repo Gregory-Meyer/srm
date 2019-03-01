@@ -68,15 +68,11 @@ fn main() {
     let run_ptr = Arc::new(core);
     let stop_ptr = run_ptr.clone();
 
-    let handle = thread::spawn(move || {
-        run_ptr.run();
-    });
-
     ctrlc::set_handler(move || {
         stop_ptr.stop();
     }).expect("couldn't set ^C handler");
 
-    handle.join().unwrap();
+    run_ptr.run();
 }
 
 #[derive(Deserialize)]
