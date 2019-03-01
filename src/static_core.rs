@@ -31,6 +31,7 @@ use libc::{c_int, c_void};
 use lock_api::RwLockUpgradableReadGuard;
 use parking_lot::{Condvar, Mutex, RwLock};
 use rayon::prelude::*;
+use log::{error, warn, info, debug, trace};
 
 pub struct StaticCore<'a> {
     plugins: plugin_loader::PluginLoader,
@@ -155,23 +156,33 @@ impl<'a> core::Core for StaticCore<'a> {
     }
 
     fn log_error(&self, msg: &str) -> Result<(), Self::Error> {
-        unimplemented!()
+        error!("{}", msg);
+
+        Ok(())
     }
 
     fn log_warn(&self, msg: &str) -> Result<(), Self::Error> {
-        unimplemented!()
+        warn!("{}", msg);
+
+        Ok(())
     }
 
     fn log_info(&self, msg: &str) -> Result<(), Self::Error> {
-        unimplemented!()
+        info!("{}", msg);
+
+        Ok(())
     }
 
     fn log_debug(&self, msg: &str) -> Result<(), Self::Error> {
-        unimplemented!()
+        debug!("{}", msg);
+
+        Ok(())
     }
 
     fn log_trace(&self, msg: &str) -> Result<(), Self::Error> {
-        unimplemented!()
+        trace!("{}", msg);
+
+        Ok(())
     }
 
     srm_core_impl!(StaticCore);

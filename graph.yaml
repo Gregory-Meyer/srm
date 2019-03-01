@@ -1,11 +1,4 @@
 path: ["/usr/local/lib/", "/usr/lib/"]
 nodes:
   - ["pub0", "publisher"]
-  - ["pub1", "publisher"]
-  - ["pub2", "publisher"]
-  - ["pub3", "publisher"]
-  - ["pub4", "publisher"]
-  - ["pub5", "publisher"]
-  - ["pub6", "publisher"]
-  - ["pub7", "publisher"]
-  - ["sub", "subscriber"]
+  - ["sub0", "subscriber"]

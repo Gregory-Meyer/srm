@@ -22,10 +22,12 @@
 
 extern crate capnp;
 extern crate ctrlc;
+extern crate env_logger;
 extern crate fnv;
 extern crate libc;
 extern crate libloading;
 extern crate lock_api;
+extern crate log;
 extern crate parking_lot;
 extern crate rayon;
 extern crate serde;
@@ -49,6 +51,8 @@ use std::{env, fs, path::{PathBuf}, sync::Arc, thread};
 use serde::Deserialize;
 
 fn main() {
+    env_logger::init();
+
     let args: Vec<_> = env::args().collect();
     let graph_pathname = &args[1];
     let graph_string = fs::read_to_string(graph_pathname).expect("couldn't read node graph");
