@@ -14,7 +14,7 @@ constexpr std::uint64_t TYPE = 0x93c2012830d68d3cull;
 
 class Subscriber {
 public:
-    explicit Subscriber(SrmCore core) noexcept : core_(core) {
+    explicit Subscriber(SrmCore core, SrmStrView name) noexcept : core_(core), name_(name) {
         SrmSubscribeParams params;
         params.msg_type = TYPE;
         params.topic = SrmStrView{ "foo", 3 };
@@ -64,13 +64,14 @@ public:
 
 private:
     SrmCore core_;
+    SrmStrView name_;
     SrmSubscriber subscriber_;
 };
 
 extern "C" {
 
-static int create(SrmCore core, void **impl) noexcept {
-    *impl = new Subscriber(core);
+static int create(SrmCore core, SrmStrView name, void **impl) noexcept {
+    *impl = new Subscriber(core, name);
 
     return 0;
 }

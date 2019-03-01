@@ -60,7 +60,7 @@ impl<'a> StaticCore<'a> {
             .vptr() as *const node::Vtbl;
 
         let aliased = unsafe { &mut *(self as *mut StaticCore) };
-        let node = node::Node::new(aliased, unsafe { &*vptr })
+        let node = node::Node::new(aliased, name.clone(), unsafe { &*vptr })
             .map_err(|e| NodeError::Start(e))?;
 
         self.nodes.insert(name, Arc::new(node));

@@ -35,7 +35,7 @@ private:
 
 class Publisher {
 public:
-    explicit Publisher(SrmCore core) noexcept : core_(core) {
+    explicit Publisher(SrmCore core, SrmStrView name) noexcept : core_(core), name_(name) {
         SrmAdvertiseParams params;
         params.msg_type = TYPE;
         params.topic = SrmStrView{"foo", 3};
@@ -78,14 +78,15 @@ public:
 
 private:
     SrmCore core_;
+    SrmStrView name_;
     SrmPublisher publisher_;
     std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(true);
 };
 
 extern "C" {
 
-static int create(SrmCore core, void **impl) noexcept {
-    *impl = new Publisher(core);
+static int create(SrmCore core, SrmStrView name, void **impl) noexcept {
+    *impl = new Publisher(core, name);
 
     return 0;
 }

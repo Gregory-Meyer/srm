@@ -32,6 +32,7 @@ use libc::{c_int, c_void};
 pub struct Node<'c, 'v: 'c> {
     impl_ptr: *mut c_void,
     vptr: &'v Vtbl,
+    name: String,
     phantom: PhantomData<&'c mut c_void>,
 }
 
@@ -41,10 +42,10 @@ unsafe impl<'c, 'v> Sync for Node<'c, 'v> { }
 
 impl<'c, 'v> Node<'c, 'v> {
     /// Creates a new Node from the provided core and vtable.
-    pub fn new<C: core::Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
-        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr, phantom: PhantomData };
+    pub fn new<C: core::Core>(core: &'c mut C, name: String, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
+        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr, name, phantom: PhantomData };
 
-        let err = unsafe { (node.vptr.create)(core.as_ffi(), &mut node.impl_ptr) };
+        let err = unsafe { (node.vptr.create)(core.as_ffi(), str_to_ffi(&node.name), &mut node.impl_ptr) };
         node.to_result(err).map(|_| node)
     }
 
@@ -109,7 +110,7 @@ impl<'c, 'v> Drop for Node<'c, 'v> {
 
 /// Identical to ffi::NodeVtbl, but with all members guaranteed non-null.
 pub struct Vtbl {
-    pub create: unsafe extern "C" fn(ffi::Core, *mut *mut c_void) -> c_int,
+    pub create: unsafe extern "C" fn(ffi::Core, ffi::StrView, *mut *mut c_void) -> c_int,
     pub destroy: unsafe extern "C" fn(*mut c_void) -> c_int,
     pub run: unsafe extern "C" fn(*mut c_void) -> c_int,
     pub stop: unsafe extern "C" fn(*mut c_void) -> c_int,
