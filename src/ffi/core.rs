@@ -68,6 +68,11 @@ pub struct CoreVtbl {
     pub subscribe: Option<unsafe extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber) -> c_int>,
     pub advertise: Option<unsafe extern "C" fn(*mut c_void, AdvertiseParams, *mut Publisher) -> c_int>,
     pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
+    pub log_error: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_warn: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_info: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_debug: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_trace: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
 }
 
 #[repr(C)]

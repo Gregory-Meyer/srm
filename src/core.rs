@@ -38,6 +38,16 @@ pub trait Core: Send + Sync {
 
     fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Self::Publisher, Self::Error>;
 
+    fn log_error(&self, msg: &str) -> Result<(), Self::Error>;
+
+    fn log_warn(&self, msg: &str) -> Result<(), Self::Error>;
+
+    fn log_info(&self, msg: &str) -> Result<(), Self::Error>;
+
+    fn log_debug(&self, msg: &str) -> Result<(), Self::Error>;
+
+    fn log_trace(&self, msg: &str) -> Result<(), Self::Error>;
+
     fn as_ffi(&mut self) -> ffi::Core;
 }
 
@@ -93,6 +103,11 @@ macro_rules! srm_core_impl {
                 subscribe: Some(core::core_ffi::subscribe_entry::<$x>),
                 advertise: Some(core::core_ffi::advertise_entry::<$x>),
                 get_err_msg: Some(core::core_ffi::get_err_msg::<$x>),
+                log_error: Some(core::core_ffi::log_error_entry::<$x>),
+                log_warn: Some(core::core_ffi::log_warn_entry::<$x>),
+                log_info: Some(core::core_ffi::log_info_entry::<$x>),
+                log_debug: Some(core::core_ffi::log_debug_entry::<$x>),
+                log_trace: Some(core::core_ffi::log_trace_entry::<$x>),
             };
 
             ffi::Core{ impl_ptr: self as *mut $x as *mut c_void,
@@ -212,6 +227,56 @@ pub unsafe extern "C" fn get_err_msg<C: Core>(
     let msg = C::Error::from_code(err).what();
 
     ffi::StrView{ data: msg.as_ptr() as *const c_char, len: msg.len() as ptrdiff_t }
+}
+
+pub unsafe extern "C" fn log_error_entry<C: Core>(impl_ptr: *const c_void,
+                                                  msg: ffi::StrView) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).log_error(ffi_to_str(msg).unwrap()) {
+        Ok(()) => 0,
+        Err(e) => e.as_code()
+    }
+}
+
+pub unsafe extern "C" fn log_warn_entry<C: Core>(impl_ptr: *const c_void,
+                                                 msg: ffi::StrView) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).log_warn(ffi_to_str(msg).unwrap()) {
+        Ok(()) => 0,
+        Err(e) => e.as_code()
+    }
+}
+
+pub unsafe extern "C" fn log_info_entry<C: Core>(impl_ptr: *const c_void,
+                                                 msg: ffi::StrView) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).log_info(ffi_to_str(msg).unwrap()) {
+        Ok(()) => 0,
+        Err(e) => e.as_code()
+    }
+}
+
+pub unsafe extern "C" fn log_debug_entry<C: Core>(impl_ptr: *const c_void,
+                                                  msg: ffi::StrView) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).log_debug(ffi_to_str(msg).unwrap()) {
+        Ok(()) => 0,
+        Err(e) => e.as_code()
+    }
+}
+
+pub unsafe extern "C" fn log_trace_entry<C: Core>(impl_ptr: *const c_void,
+                                                  msg: ffi::StrView) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).log_trace(ffi_to_str(msg).unwrap()) {
+        Ok(()) => 0,
+        Err(e) => e.as_code()
+    }
 }
 
 } // pub mod core_ffi

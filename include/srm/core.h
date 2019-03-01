@@ -67,6 +67,11 @@ struct SrmCoreVtbl {
     int (*subscribe)(void*, SrmSubscribeParams, SrmSubscriber*);
     int (*advertise)(void*, SrmAdvertiseParams, SrmPublisher*);
     SrmStrView (*get_err_msg)(const void*, int);
+    int (*log_error)(const void*, SrmStrView msg);
+    int (*log_warn)(const void*, SrmStrView msg);
+    int (*log_info)(const void*, SrmStrView msg);
+    int (*log_debug)(const void*, SrmStrView msg);
+    int (*log_trace)(const void*, SrmStrView msg);
 };
 
 struct SrmSubscriberVtbl {

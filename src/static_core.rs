@@ -154,6 +154,26 @@ impl<'a> core::Core for StaticCore<'a> {
         Ok(Publisher{ channel })
     }
 
+    fn log_error(&self, msg: &str) -> Result<(), Self::Error> {
+        unimplemented!()
+    }
+
+    fn log_warn(&self, msg: &str) -> Result<(), Self::Error> {
+        unimplemented!()
+    }
+
+    fn log_info(&self, msg: &str) -> Result<(), Self::Error> {
+        unimplemented!()
+    }
+
+    fn log_debug(&self, msg: &str) -> Result<(), Self::Error> {
+        unimplemented!()
+    }
+
+    fn log_trace(&self, msg: &str) -> Result<(), Self::Error> {
+        unimplemented!()
+    }
+
     srm_core_impl!(StaticCore);
 }
 
