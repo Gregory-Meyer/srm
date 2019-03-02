@@ -22,7 +22,10 @@
 
 use super::*;
 
-use std::{error::Error, fmt::{Display, Formatter, Result}};
+use std::{
+    error::Error,
+    fmt::{Display, Formatter, Result},
+};
 
 use libc::c_int;
 
@@ -42,26 +45,26 @@ use libc::c_int;
 ///     }
 /// }
 /// ```
-#[derive(Debug, Copy, Clone)]
-pub struct ErrorCode<'a> {
+#[derive(Debug, Clone)]
+pub struct ErrorCode {
     code: c_int,
-    description: &'a str,
+    description: String,
 }
 
-impl<'a> ErrorCode<'a> {
+impl ErrorCode {
     /// Creates a new error code/description pair from its parts.
     ///
     /// `code` must be nonzero, as zero indicates success.
-    pub fn new(code: c_int, description: &'a str) -> ErrorCode<'a> {
+    pub fn new(code: c_int, description: String) -> ErrorCode {
         assert!(code != 0);
 
-        ErrorCode{ code, description }
+        ErrorCode { code, description }
     }
 }
 
-impl<'a> Error for ErrorCode<'a> { }
+impl Error for ErrorCode {}
 
-impl<'a> Display for ErrorCode<'a> {
+impl Display for ErrorCode {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "{} ({})", self.description, self.code)
     }

@@ -25,7 +25,8 @@ use super::*;
 use libc::{c_int, c_void};
 
 pub unsafe extern "C" fn alloc_segment_entry<B: MessageBuilder>(
-    impl_ptr: *mut c_void, segment: *mut ffi::MsgSegment
+    impl_ptr: *mut c_void,
+    segment: *mut ffi::MsgSegment,
 ) -> c_int {
     assert!(!segment.is_null());
 
@@ -39,8 +40,10 @@ pub unsafe extern "C" fn alloc_segment_entry<B: MessageBuilder>(
     0
 }
 
-pub unsafe extern "C" fn get_err_msg<B: MessageBuilder>(_: *const c_void, err: c_int)
--> ffi::StrView {
+pub unsafe extern "C" fn get_err_msg<B: MessageBuilder>(
+    _: *const c_void,
+    err: c_int,
+) -> ffi::StrView {
     let err_obj = B::Error::from_code(err);
 
     str_to_ffi(err_obj.what())

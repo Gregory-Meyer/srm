@@ -24,7 +24,7 @@ use libc::{c_char, ptrdiff_t};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct StrView{
+pub struct StrView {
     pub data: *const c_char,
     pub len: ptrdiff_t,
 }

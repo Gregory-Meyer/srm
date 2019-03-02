@@ -39,9 +39,9 @@ pub struct MsgSegmentView {
     pub len: Index,
 }
 
-unsafe impl Send for MsgSegmentView { }
+unsafe impl Send for MsgSegmentView {}
 
-unsafe impl Sync for MsgSegmentView { }
+unsafe impl Sync for MsgSegmentView {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -51,9 +51,9 @@ pub struct MsgView {
     pub msg_type: MsgType,
 }
 
-unsafe impl Send for MsgView { }
+unsafe impl Send for MsgView {}
 
-unsafe impl Sync for MsgView { }
+unsafe impl Sync for MsgView {}
 
 #[repr(C)]
 #[derive(Debug)]

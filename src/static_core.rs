@@ -20,63 +20,112 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
-use self::core::MessageBuilder;
+use super::{
+    alloc::CacheAlignedAllocator,
+    core::{self, MessageBuilder},
+    ffi,
+    node::Node,
+    plugin_loader::PluginLoader,
+    util::ffi_to_str,
+    *,
+};
 
-use std::{error::Error, fmt::{self, Display, Formatter}, path::PathBuf, sync::{Arc, Weak}};
+use std::{
+    cell::UnsafeCell,
+    error::Error,
+    fmt::{self, Display, Formatter},
+    mem,
+    path::PathBuf,
+    ptr,
+    sync::{Arc, Weak},
+};
 
-use hashbrown::{HashMap, hash_map::Entry};
+use hashbrown::{hash_map::Entry, HashMap};
 use libc::{c_int, c_void};
 use lock_api::RwLockUpgradableReadGuard;
-use log::{error, warn, info, debug, trace};
+use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 
-pub struct StaticCore<'a> {
-    plugins: plugin_loader::PluginLoader,
+pub struct Core {
+    plugin_loader: Mutex<PluginLoader>,
     channels: Mutex<HashMap<String, Weak<Channel>>>,
-    nodes: HashMap<String, Arc<node::Node<'a, 'a>>>,
+    nodes: RwLock<HashMap<String, Arc<CoreInterface>>>,
 }
 
-impl<'a> StaticCore<'a> {
-    pub fn new(paths: Vec<PathBuf>) -> StaticCore<'a> {
-        StaticCore{ plugins: plugin_loader::PluginLoader::new(paths),
-                    channels: Mutex::new(HashMap::new()), nodes: HashMap::new(),}
-    }
+pub fn add_node(core: Arc<Core>, name: String, tp: String) -> Result<(), NodeError> {
+    let plugin = {
+        let mut plugin_loader = core.plugin_loader.lock();
+        plugin_loader.load(tp).map_err(|e| NodeError::Load(e))?
+    };
 
-    pub fn add_node(&mut self, name: String, tp: String) -> Result<(), NodeError> {
-        // how is this safe?
-        // Core functions only read or modify channels
-        // in other words, we're orthogonally reading/modifying self
-        // self.plugins/self.nodes are accessed here
-        // aliased is used to modify self.channels
-        let vptr = self.plugins.load(tp)
-            .map_err(|e| NodeError::Load(e))?
-            .vptr() as *const node::Vtbl;
+    let mut interface = Arc::new(CoreInterface {
+        core: Arc::downgrade(&core),
+        node: unsafe { mem::uninitialized() },
+    });
+    let node = Arc::new(Node::new(interface.clone(), plugin, name.clone()));
+    unsafe { ptr::write(interface.node.get(), node) };
 
-        let aliased = unsafe { &mut *(self as *mut StaticCore) };
-        let node = node::Node::new(aliased, name.clone(), unsafe { &*vptr })
-            .map_err(|e| NodeError::Start(e))?;
+    Arc::get_mut(&mut interface)
+        .unwrap()
+        .start()
+        .map_err(|e| NodeError::Start(e))?;
 
-        self.nodes.insert(name, Arc::new(node));
+    let was_present = {
+        let mut nodes = core.nodes.write();
+        nodes.insert(name, interface).is_some()
+    };
+    assert!(!was_present);
 
-        Ok(())
+    Ok(())
+}
+
+impl Core {
+    pub fn new(paths: Vec<PathBuf>) -> Core {
+        Core {
+            plugin_loader: Mutex::new(PluginLoader::new(paths)),
+            channels: Mutex::new(HashMap::new()),
+            nodes: RwLock::new(HashMap::new()),
+        }
     }
 
     pub fn run(&self) {
-        let nodes: Vec<_> = self.nodes.values().cloned().collect();
+        let nodes: Vec<Arc<Node>> = {
+            let nodes = self.nodes.read();
+            nodes.iter().map(|(_, c)| c.node().clone()).collect()
+        };
 
         crossbeam::scope(move |s| {
             for node in nodes.into_iter() {
-                s.spawn(move |_| node.run());
+                s.spawn(move |_| node.run().unwrap());
             }
-        }).unwrap();
+        })
+        .unwrap();
     }
 
     pub fn stop(&self) {
-        for node in self.nodes.values() {
-            node.stop().unwrap();
+        let interfaces = self.nodes.read();
+
+        for i in interfaces.values() {
+            i.node().stop().unwrap();
         }
+    }
+
+    pub fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Subscriber, StaticCoreError> {
+        assert!(params.callback.is_some());
+
+        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
+        let channel = self.get_channel(name, params.msg_type)?;
+
+        Subscriber::new(channel, params.callback.unwrap(), params.arg)
+            .ok_or(StaticCoreError::ChannelFull)
+    }
+
+    pub fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
+        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
+        let channel = self.get_channel(name, params.msg_type)?;
+
+        Ok(Publisher { channel })
     }
 
     fn get_channel(&self, name: String, msg_type: u64) -> Result<Arc<Channel>, StaticCoreError> {
@@ -90,7 +139,7 @@ impl<'a> StaticCore<'a> {
                 e.insert(Arc::downgrade(&channel));
 
                 Ok(channel)
-            },
+            }
             Entry::Occupied(mut e) => {
                 match e.get_mut().upgrade() {
                     Some(c) => {
@@ -105,79 +154,101 @@ impl<'a> StaticCore<'a> {
                         e.insert(Arc::downgrade(&channel));
 
                         Ok(channel)
-                    },
+                    }
                 }
             }
         }
     }
 }
 
-impl<'a> core::Core for StaticCore<'a> {
+struct CoreInterface {
+    core: Weak<Core>,
+    node: UnsafeCell<Arc<Node>>,
+}
+
+impl CoreInterface {
+    fn name(&self) -> &str {
+        self.node().name()
+    }
+
+    fn node(&self) -> &Arc<Node> {
+        unsafe { &*self.node.get() }
+    }
+
+    fn node_mut(&self) -> &mut Arc<Node> {
+        unsafe { &mut *self.node.get() }
+    }
+
+    fn start(&mut self) -> Result<(), ErrorCode> {
+        let node = Arc::get_mut(self.node_mut()).unwrap();
+        node.start()
+    }
+}
+
+impl core::Core for CoreInterface {
     type Error = StaticCoreError;
     type Publisher = Publisher;
     type Subscriber = Subscriber;
 
     fn get_type(&self) -> &'static str {
-        "srm::static_core::StaticCore"
+        "srm::static_core::CoreInterface"
     }
 
-    fn subscribe(&self, params: ffi::SubscribeParams)
-    -> Result<Subscriber, StaticCoreError> {
-        assert!(params.callback.is_some());
+    fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Subscriber, StaticCoreError> {
+        assert!(self.core.upgrade().is_some());
 
-        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
-        let channel = self.get_channel(name, params.msg_type)?;
-
-        Subscriber::new(channel, params.callback.unwrap(), params.arg)
-            .ok_or(StaticCoreError::ChannelFull)
+        self.core.upgrade().unwrap().subscribe(params)
     }
 
     fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
-        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
-        let channel = self.get_channel(name, params.msg_type)?;
-
-        Ok(Publisher{ channel })
+        self.core.upgrade().unwrap().advertise(params)
     }
 
-    fn log_error(&self, msg: &str) -> Result<(), Self::Error> {
-        error!("{}", msg);
+    fn log_error(&self, msg: &str) -> Result<(), StaticCoreError> {
+        error!(target: self.name(), "{}", msg);
 
         Ok(())
     }
 
-    fn log_warn(&self, msg: &str) -> Result<(), Self::Error> {
-        warn!("{}", msg);
+    fn log_warn(&self, msg: &str) -> Result<(), StaticCoreError> {
+        warn!(target: self.name(), "{}", msg);
 
         Ok(())
     }
 
-    fn log_info(&self, msg: &str) -> Result<(), Self::Error> {
-        info!("{}", msg);
+    fn log_info(&self, msg: &str) -> Result<(), StaticCoreError> {
+        info!(target: self.name(), "{}", msg);
 
         Ok(())
     }
 
-    fn log_debug(&self, msg: &str) -> Result<(), Self::Error> {
-        debug!("{}", msg);
+    fn log_debug(&self, msg: &str) -> Result<(), StaticCoreError> {
+        debug!(target: self.name(), "{}", msg);
 
         Ok(())
     }
 
-    fn log_trace(&self, msg: &str) -> Result<(), Self::Error> {
-        trace!("{}", msg);
+    fn log_trace(&self, msg: &str) -> Result<(), StaticCoreError> {
+        trace!(target: self.name(), "{}", msg);
 
         Ok(())
     }
-
-    srm_core_impl!(StaticCore);
 }
+
+impl core::CoreBase for CoreInterface {
+    srm_core_base_impl!(CoreInterface);
+}
+
+unsafe impl Send for CoreInterface {}
+
+unsafe impl Sync for CoreInterface {}
 
 pub struct Publisher {
     channel: Arc<Channel>,
 }
 
 impl core::Publisher for Publisher {
-    type Builder = alloc::CacheAlignedAllocator;
+    type Builder = CacheAlignedAllocator;
     type Error = StaticCoreError;
 
     fn get_channel_name(&self) -> &str {
@@ -188,7 +259,7 @@ impl core::Publisher for Publisher {
         self.channel.msg_type()
     }
 
-    fn publish(&mut self, allocator: alloc::CacheAlignedAllocator) -> Result<(), StaticCoreError> {
+    fn publish(&mut self, allocator: CacheAlignedAllocator) -> Result<(), StaticCoreError> {
         let weak_count = Arc::weak_count(&self.channel);
 
         if weak_count == 0 {
@@ -200,8 +271,8 @@ impl core::Publisher for Publisher {
         Ok(())
     }
 
-    fn get_allocator(&self) -> alloc::CacheAlignedAllocator {
-        alloc::CacheAlignedAllocator::new()
+    fn get_allocator(&self) -> CacheAlignedAllocator {
+        CacheAlignedAllocator::new()
     }
 
     srm_publisher_impl!(Publisher);
@@ -213,14 +284,17 @@ pub struct Subscriber {
 }
 
 impl Subscriber {
-    fn new(channel: Arc<Channel>, f: ffi::SubscribeCallback, arg: *mut c_void)
-    -> Option<Subscriber> {
+    fn new(
+        channel: Arc<Channel>,
+        f: ffi::SubscribeCallback,
+        arg: *mut c_void,
+    ) -> Option<Subscriber> {
         let id = match channel.insert_callback(f, arg) {
             Some(i) => i,
             None => return None,
         };
 
-        Some(Subscriber{ channel, id })
+        Some(Subscriber { channel, id })
     }
 }
 
@@ -275,13 +349,12 @@ impl core::Error for StaticCoreError {
             StaticCoreError::ChannelDisconnected => "channel disconnected",
             StaticCoreError::SubscriberDisconnected => "subscriber disconnected",
             StaticCoreError::ChannelFull => "channel has maximum subscribers",
-            StaticCoreError::ChannelTypeDiffers
-                => "channel exists, but has differing message type",
+            StaticCoreError::ChannelTypeDiffers => "channel exists, but has differing message type",
         }
     }
 }
 
-impl Error for StaticCoreError { }
+impl Error for StaticCoreError {}
 
 impl Display for StaticCoreError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -300,13 +373,21 @@ struct Channel {
 
 impl Channel {
     pub fn new(name: String, msg_type: u64) -> Channel {
-        Channel{ name, msg_type, max_num_callbacks: None,
-                 callbacks: Arc::new(RwLock::new((Vec::with_capacity(8), 0))) }
+        Channel {
+            name,
+            msg_type,
+            max_num_callbacks: None,
+            callbacks: Arc::new(RwLock::new((Vec::with_capacity(8), 0))),
+        }
     }
 
     pub fn with_max_callbacks(name: String, msg_type: u64, max_num_callbacks: usize) -> Channel {
-        Channel{ name, msg_type, max_num_callbacks: Some(max_num_callbacks),
-                 callbacks: Arc::new(RwLock::new((Vec::with_capacity(max_num_callbacks), 0))) }
+        Channel {
+            name,
+            msg_type,
+            max_num_callbacks: Some(max_num_callbacks),
+            callbacks: Arc::new(RwLock::new((Vec::with_capacity(max_num_callbacks), 0))),
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -368,27 +449,30 @@ impl Channel {
         });
     }
 
-    fn do_publish(allocator: alloc::CacheAlignedAllocator,
-                  callbacks: &Vec<(usize, Callback)>, msg_type: u64) {
+    fn do_publish(
+        allocator: alloc::CacheAlignedAllocator,
+        callbacks: &Vec<(usize, Callback)>,
+        msg_type: u64,
+    ) {
         let segments = unsafe { allocator.as_view() };
         let msg = slice_to_msg(&segments, msg_type);
 
-        callbacks.par_iter().for_each(|(_, c)| {
-            match unsafe { c.invoke(msg) } {
+        callbacks
+            .par_iter()
+            .for_each(|(_, c)| match unsafe { c.invoke(msg) } {
                 0 => (),
                 x => eprintln!("callback {:p} failed with errc {}", c.f, x),
-            }
-        });
+            });
     }
 }
 
 #[derive(Debug)]
 pub enum NodeError {
     Load(node_plugin::LoadError),
-    Start(ErrorCode<'static>),
+    Start(ErrorCode),
 }
 
-impl Error for NodeError { }
+impl Error for NodeError {}
 
 impl Display for NodeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -400,7 +484,11 @@ impl Display for NodeError {
 }
 
 fn slice_to_msg(slice: &[ffi::MsgSegmentView], msg_type: u64) -> ffi::MsgView {
-    ffi::MsgView{ segments: slice.as_ptr(), num_segments: slice.len() as ffi::Index, msg_type }
+    ffi::MsgView {
+        segments: slice.as_ptr(),
+        num_segments: slice.len() as ffi::Index,
+        msg_type,
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -411,7 +499,7 @@ struct Callback {
 
 impl Callback {
     fn new(f: ffi::SubscribeCallback, arg: *mut c_void) -> Callback {
-        Callback{ f, arg }
+        Callback { f, arg }
     }
 
     unsafe fn invoke(&self, segments: ffi::MsgView) -> c_int {
@@ -419,6 +507,6 @@ impl Callback {
     }
 }
 
-unsafe impl Send for Callback { }
+unsafe impl Send for Callback {}
 
-unsafe impl Sync for Callback { }
+unsafe impl Sync for Callback {}

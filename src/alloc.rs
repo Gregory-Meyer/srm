@@ -22,7 +22,12 @@
 
 use super::*;
 
-use std::{alloc::{self, Layout}, error::Error, fmt::{self, Display, Formatter}, mem};
+use std::{
+    alloc::{self, Layout},
+    error::Error,
+    fmt::{self, Display, Formatter},
+    mem,
+};
 
 use capnp::message::{Allocator, Builder};
 use libc::c_int;
@@ -37,13 +42,15 @@ pub struct CacheAlignedAllocator {
 
 impl CacheAlignedAllocator {
     pub fn new() -> CacheAlignedAllocator {
-        CacheAlignedAllocator{ segments: Vec::new() }
+        CacheAlignedAllocator {
+            segments: Vec::new(),
+        }
     }
 }
 
-unsafe impl Send for CacheAlignedAllocator { }
+unsafe impl Send for CacheAlignedAllocator {}
 
-unsafe impl Sync for CacheAlignedAllocator { }
+unsafe impl Sync for CacheAlignedAllocator {}
 
 unsafe impl Allocator for CacheAlignedAllocator {
     /// Allocates segments that are multiples of 16 words (128 bytes) long.
@@ -61,9 +68,13 @@ impl core::MessageBuilder for CacheAlignedAllocator {
     type Error = NullError;
 
     unsafe fn as_view(&self) -> Vec<ffi::MsgSegmentView> {
-        self.segments.iter().map(|(p, l)| {
-            ffi::MsgSegmentView{data: *p, len: *l as ffi::Index}
-        }).collect()
+        self.segments
+            .iter()
+            .map(|(p, l)| ffi::MsgSegmentView {
+                data: *p,
+                len: *l as ffi::Index,
+            })
+            .collect()
     }
 
     srm_message_builder_impl!(CacheAlignedAllocator);
@@ -98,7 +109,7 @@ impl core::Error for NullError {
     }
 }
 
-impl Error for NullError { }
+impl Error for NullError {}
 
 impl Display for NullError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

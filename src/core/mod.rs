@@ -27,7 +27,11 @@ use std::error;
 use capnp::message::Allocator;
 use libc::{c_char, c_int, ptrdiff_t};
 
-pub trait Core: Send + Sync {
+pub trait CoreBase: Send + Sync {
+    fn as_ffi(&self) -> ffi::Core;
+}
+
+pub trait Core: Send + Sync + CoreBase {
     type Error: Error;
     type Publisher: Publisher;
     type Subscriber: Subscriber;
@@ -47,8 +51,6 @@ pub trait Core: Send + Sync {
     fn log_debug(&self, msg: &str) -> Result<(), Self::Error>;
 
     fn log_trace(&self, msg: &str) -> Result<(), Self::Error>;
-
-    fn as_ffi(&mut self) -> ffi::Core;
 }
 
 pub trait Publisher: Send {
@@ -93,9 +95,9 @@ pub trait Error: error::Error {
 }
 
 #[macro_export]
-macro_rules! srm_core_impl {
+macro_rules! srm_core_base_impl {
     ($x:ty) => (
-        fn as_ffi(&mut self) -> ffi::Core {
+        fn as_ffi(&self) -> ffi::Core {
             use libc::c_void;
 
             const VTBL: ffi::CoreVtbl = ffi::CoreVtbl{
@@ -110,7 +112,7 @@ macro_rules! srm_core_impl {
                 log_trace: Some($crate::core::core_ffi::log_trace_entry::<$x>),
             };
 
-            ffi::Core{ impl_ptr: self as *mut $x as *mut c_void,
+            ffi::Core{ impl_ptr: self as *const $x as *const c_void,
                        vptr: &VTBL as *const ffi::CoreVtbl }
         }
     )

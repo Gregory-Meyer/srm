@@ -36,7 +36,7 @@ extern "C" {
 #endif
 
 struct SrmCore {
-    void *impl_ptr;
+    const void *impl_ptr;
     const SrmCoreVtbl *vptr;
 };
 
@@ -64,8 +64,8 @@ struct SrmAdvertiseParams {
 
 struct SrmCoreVtbl {
     SrmStrView (*get_type)(const void*);
-    int (*subscribe)(void*, SrmSubscribeParams, SrmSubscriber*);
-    int (*advertise)(void*, SrmAdvertiseParams, SrmPublisher*);
+    int (*subscribe)(const void*, SrmSubscribeParams, SrmSubscriber*);
+    int (*advertise)(const void*, SrmAdvertiseParams, SrmPublisher*);
     SrmStrView (*get_err_msg)(const void*, int);
     int (*log_error)(const void*, SrmStrView msg);
     int (*log_warn)(const void*, SrmStrView msg);

@@ -46,7 +46,7 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
-use std::{env, fs, path::{PathBuf}, sync::Arc};
+use std::{env, fs, path::PathBuf, sync::Arc};
 
 use serde::Deserialize;
 
@@ -57,22 +57,22 @@ fn main() {
     let graph_pathname = &args[1];
     let graph_string = fs::read_to_string(graph_pathname).expect("couldn't read node graph");
     let graph: NodeGraph = serde_yaml::from_str(&graph_string).expect("couldn't parse node graph");
-    let mut core = static_core::StaticCore::new(graph.path);
+    let core = Arc::new(static_core::Core::new(graph.path));
 
     for (name, tp) in graph.nodes.into_iter() {
-        if let Err(e) = core.add_node(name.0, tp.0) {
+        if let Err(e) = static_core::add_node(core.clone(), name.0, tp.0) {
             panic!("couldn't add node: {}", e);
         }
     }
 
-    let run_ptr = Arc::new(core);
-    let stop_ptr = run_ptr.clone();
+    let stop_ptr = core.clone();
 
     ctrlc::set_handler(move || {
         stop_ptr.stop();
-    }).expect("couldn't set ^C handler");
+    })
+    .expect("couldn't set ^C handler");
 
-    run_ptr.run();
+    core.run();
 }
 
 #[derive(Deserialize)]
