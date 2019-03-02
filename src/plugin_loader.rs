@@ -22,19 +22,19 @@
 
 use super::*;
 
-use std::{collections::hash_map::Entry, path::{Path, PathBuf}};
+use std::path::{Path, PathBuf};
 
+use hashbrown::{HashMap, hash_map::Entry};
 use libloading::Library;
-use fnv::{FnvBuildHasher, FnvHashMap};
 
 pub struct PluginLoader {
     paths: Vec<PathBuf>,
-    plugins: FnvHashMap<String, (Box<node_plugin::NodePlugin>, *const node_plugin::NodePlugin)>,
+    plugins: HashMap<String, (Box<node_plugin::NodePlugin>, *const node_plugin::NodePlugin)>,
 }
 
 impl PluginLoader {
     pub fn new(paths: Vec<PathBuf>) -> PluginLoader {
-        PluginLoader{ paths, plugins: FnvHashMap::with_hasher(FnvBuildHasher::default()) }
+        PluginLoader{ paths, plugins: HashMap::new() }
     }
 
     pub fn load(&mut self, name: String) -> Result<&node_plugin::NodePlugin, node_plugin::LoadError> {

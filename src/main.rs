@@ -23,7 +23,7 @@
 extern crate capnp;
 extern crate ctrlc;
 extern crate env_logger;
-extern crate fnv;
+extern crate hashbrown;
 extern crate libc;
 extern crate libloading;
 extern crate lock_api;
@@ -46,7 +46,7 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
-use std::{env, fs, path::{PathBuf}, sync::Arc, thread};
+use std::{env, fs, path::{PathBuf}, sync::Arc};
 
 use serde::Deserialize;
 

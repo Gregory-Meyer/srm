@@ -23,30 +23,25 @@
 use super::*;
 use self::core::MessageBuilder;
 
-use std::{collections::hash_map::Entry, error::Error,
-          fmt::{self, Display, Formatter}, path::PathBuf, sync::{Arc, Weak}};
+use std::{error::Error, fmt::{self, Display, Formatter}, path::PathBuf, sync::{Arc, Weak}};
 
-use fnv::{FnvBuildHasher, FnvHashMap};
+use hashbrown::{HashMap, hash_map::Entry};
 use libc::{c_int, c_void};
 use lock_api::RwLockUpgradableReadGuard;
-use parking_lot::{Condvar, Mutex, RwLock};
-use rayon::prelude::*;
 use log::{error, warn, info, debug, trace};
+use parking_lot::{Mutex, RwLock};
+use rayon::prelude::*;
 
 pub struct StaticCore<'a> {
     plugins: plugin_loader::PluginLoader,
-    channels: Mutex<FnvHashMap<String, Weak<Channel>>>,
-    nodes: FnvHashMap<String, Arc<node::Node<'a, 'a>>>,
-    joined: Mutex<bool>,
-    joined_cv: Condvar,
+    channels: Mutex<HashMap<String, Weak<Channel>>>,
+    nodes: HashMap<String, Arc<node::Node<'a, 'a>>>,
 }
 
 impl<'a> StaticCore<'a> {
     pub fn new(paths: Vec<PathBuf>) -> StaticCore<'a> {
         StaticCore{ plugins: plugin_loader::PluginLoader::new(paths),
-                    channels: Mutex::new(FnvHashMap::with_hasher(FnvBuildHasher::default())),
-                    nodes: FnvHashMap::with_hasher(FnvBuildHasher::default()),
-                    joined: Mutex::new(false), joined_cv: Condvar::new() }
+                    channels: Mutex::new(HashMap::new()), nodes: HashMap::new(),}
     }
 
     pub fn add_node(&mut self, name: String, tp: String) -> Result<(), NodeError> {
@@ -76,22 +71,11 @@ impl<'a> StaticCore<'a> {
                 s.spawn(move |_| node.run());
             }
         }).unwrap();
-
-        let mut joined = self.joined.lock();
-        *joined = true;
-
-        self.joined_cv.notify_all();
     }
 
     pub fn stop(&self) {
         for node in self.nodes.values() {
             node.stop().unwrap();
-        }
-
-        let mut joined = self.joined.lock();
-
-        while !*joined {
-            self.joined_cv.wait(&mut joined);
         }
     }
 
