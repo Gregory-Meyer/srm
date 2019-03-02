@@ -80,6 +80,10 @@ impl<'c, 'v> Node<'c, 'v> {
 
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     fn to_result<'a>(&self, err: c_int) -> Result<(), ErrorCode<'a>> {
         match err {
             0 => Ok(()),
