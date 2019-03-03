@@ -22,8 +22,8 @@
 
 extern crate capnp;
 extern crate ctrlc;
-extern crate env_logger;
 extern crate hashbrown;
+extern crate humantime;
 extern crate libc;
 extern crate libloading;
 extern crate lock_api;
@@ -46,12 +46,121 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
-use std::{env, fs, path::PathBuf, sync::Arc};
+use std::{
+    env, fs, mem,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread,
+    time::{Duration, SystemTime},
+};
 
+use log::{LevelFilter, Log, Metadata, Record};
+use parking_lot::Mutex;
 use serde::Deserialize;
 
+struct Logger {
+    writer: Arc<LogWriter>,
+}
+
+impl Logger {
+    fn new(writer: Arc<LogWriter>) -> Logger {
+        Logger { writer }
+    }
+
+    fn format(record: &Record) -> String {
+        if let Some(p) = record.module_path() {
+            if p != record.target() {
+                return format!(
+                    "[{} {} {}/{}] {}\n",
+                    humantime::format_rfc3339(SystemTime::now()),
+                    record.level(),
+                    p,
+                    record.target(),
+                    record.args()
+                );
+            }
+        }
+
+        format!(
+            "[{} {} {}] {}\n",
+            humantime::format_rfc3339(SystemTime::now()),
+            record.level(),
+            record.target(),
+            record.args()
+        )
+    }
+}
+
+impl Log for Logger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        true
+        // metadata.level() >= Level::Info
+    }
+
+    fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+
+        self.writer.push(Logger::format(record))
+    }
+
+    fn flush(&self) {
+        self.writer.pop();
+    }
+}
+
+struct LogWriter {
+    queue: Mutex<String>,
+}
+
+impl LogWriter {
+    fn new() -> LogWriter {
+        LogWriter {
+            queue: Mutex::new(String::new()),
+        }
+    }
+
+    fn push(&self, msg: String) {
+        let mut queue = self.queue.lock();
+        queue.push_str(&msg);
+    }
+
+    fn pop(&self) {
+        let mut messages = String::new();
+
+        {
+            let mut queue = self.queue.lock();
+
+            if queue.is_empty() {
+                return;
+            }
+
+            mem::swap(&mut *queue, &mut messages);
+        }
+
+        eprint!("{}", messages);
+    }
+}
+
 fn main() {
-    env_logger::init();
+    let keep_running = Arc::new(AtomicBool::new(true));
+    let run_ptr = keep_running.clone();
+    let writer = Arc::new(LogWriter::new());
+    let other_writer = writer.clone();
+    let logger = Logger::new(writer.clone());
+    log::set_boxed_logger(Box::new(logger)).unwrap();
+    log::set_max_level(LevelFilter::Info);
+
+    let writer_thread = thread::spawn(move || {
+        while keep_running.load(Ordering::Relaxed) {
+            other_writer.pop();
+            thread::sleep(Duration::from_millis(100));
+        }
+    });
 
     let args: Vec<_> = env::args().collect();
     let graph_pathname = &args[1];
@@ -69,10 +178,12 @@ fn main() {
 
     ctrlc::set_handler(move || {
         stop_ptr.stop();
+        run_ptr.store(false, Ordering::Relaxed);
     })
     .expect("couldn't set ^C handler");
 
     core.run();
+    writer_thread.join().unwrap();
 }
 
 #[derive(Deserialize)]
