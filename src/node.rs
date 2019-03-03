@@ -39,31 +39,37 @@ pub struct Node {
     impl_ptr: *mut c_void,
 }
 
+struct EmptyCoreBase {}
+
+impl CoreBase for EmptyCoreBase {
+    fn as_ffi(&self) -> ffi::Core {
+        unimplemented!()
+    }
+}
+
 unsafe impl Send for Node {}
 
 unsafe impl Sync for Node {}
 
 impl Node {
     /// Creates a new Node from the provided core and vtable.
-    pub fn new(core: Arc<dyn CoreBase>, plugin: Arc<NodePlugin>, name: String) -> Node {
+    pub fn new(plugin: Arc<NodePlugin>, name: String) -> Node {
         Node {
-            core: Arc::downgrade(&core),
+            core: Weak::<EmptyCoreBase>::new(),
             plugin,
             name,
             impl_ptr: ptr::null_mut(),
         }
     }
 
-    pub fn start(&mut self) -> Result<(), ErrorCode> {
+    pub fn start(&mut self, core: Arc<dyn CoreBase>) -> Result<(), ErrorCode> {
         assert!(self.impl_ptr.is_null());
-        assert!(self.core.upgrade().is_some());
+        assert!(self.core.upgrade().is_none());
+
+        self.core = Arc::downgrade(&core);
 
         let err = unsafe {
-            (self.plugin.vptr().create)(
-                self.core.upgrade().unwrap().as_ffi(),
-                str_to_ffi(&self.name),
-                &mut self.impl_ptr,
-            )
+            (self.plugin.vptr().create)(core.as_ffi(), str_to_ffi(&self.name), &mut self.impl_ptr)
         };
         self.to_result(err)
     }

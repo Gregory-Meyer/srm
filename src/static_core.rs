@@ -34,9 +34,7 @@ use std::{
     cell::UnsafeCell,
     error::Error,
     fmt::{self, Display, Formatter},
-    mem,
     path::PathBuf,
-    ptr,
     sync::{Arc, Weak},
 };
 
@@ -59,16 +57,14 @@ pub fn add_node(core: Arc<Core>, name: String, tp: String) -> Result<(), NodeErr
         plugin_loader.load(tp).map_err(|e| NodeError::Load(e))?
     };
 
-    let mut interface = Arc::new(CoreInterface {
+    let interface = Arc::new(CoreInterface {
         core: Arc::downgrade(&core),
-        node: unsafe { mem::uninitialized() },
+        node: UnsafeCell::new(Arc::new(Node::new(plugin, name.clone()))),
     });
-    let node = Arc::new(Node::new(interface.clone(), plugin, name.clone()));
-    unsafe { ptr::write(interface.node.get(), node) };
 
-    Arc::get_mut(&mut interface)
+    Arc::get_mut(unsafe { interface.node_mut() })
         .unwrap()
-        .start()
+        .start(interface.clone())
         .map_err(|e| NodeError::Start(e))?;
 
     let was_present = {
@@ -167,21 +163,16 @@ struct CoreInterface {
 }
 
 impl CoreInterface {
-    fn name(&self) -> &str {
-        self.node().name()
-    }
-
     fn node(&self) -> &Arc<Node> {
         unsafe { &*self.node.get() }
     }
 
-    fn node_mut(&self) -> &mut Arc<Node> {
-        unsafe { &mut *self.node.get() }
+    unsafe fn node_mut(&self) -> &mut Arc<Node> {
+        &mut *self.node.get()
     }
 
-    fn start(&mut self) -> Result<(), ErrorCode> {
-        let node = Arc::get_mut(self.node_mut()).unwrap();
-        node.start()
+    fn name(&self) -> &str {
+        self.node().name()
     }
 }
 
