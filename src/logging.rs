@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 use std::{
+    env,
     mem,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -30,7 +31,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use log::{LevelFilter, Log, Metadata, Record};
+use log::{LevelFilter, Log, Metadata, Record, info};
 use parking_lot::Mutex;
 
 pub fn init() {
@@ -39,9 +40,36 @@ pub fn init() {
 
 pub fn init_with_polling_period(polling_period: Duration) {
     let logger = Box::new(AsyncLogger::with_polling_period(polling_period));
+    let (max_level, defaulted) = get_max_level();
+
     log::set_boxed_logger(logger).unwrap();
-    log::set_max_level(LevelFilter::Info);
+    log::set_max_level(max_level);
+
+    if let Some(maybe_unparsed) = defaulted {
+        if let Some(unparsed) = maybe_unparsed {
+            info!("couldn't parse {} as a maximum logging level, using INFO", unparsed);
+        } else {
+            info!("no maximum logging level provided, using INFO");
+        }
+    }
 }
+
+// returns None if not defaulted
+// returns Some(None) if defaulted because no env var was found
+// returns Some(Some(s)) if defaulted because env var couldn't be parsed
+fn get_max_level() -> (LevelFilter, Option<Option<String>>) {
+    let level_str = match env::var("RUST_LOG") {
+        Ok(l) => l,
+        Err(_) => return (DEFAULT_LOG_LEVEL, Some(None)),
+    };
+
+    match level_str.to_lowercase().parse() {
+        Ok(l) => (l, None),
+        Err(_) => (DEFAULT_LOG_LEVEL, Some(Some(level_str))),
+    }
+}
+
+const DEFAULT_LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
 struct AsyncLogger {
     sink: Arc<Sink>,
