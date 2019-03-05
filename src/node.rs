@@ -20,7 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::{core::CoreBase, node_plugin::NodePlugin, *};
+use super::{core::CoreBase, error_code::ErrorCode, ffi, node_plugin::NodePlugin, util};
 
 use std::{
     ptr,
@@ -69,7 +69,11 @@ impl Node {
         self.core = Arc::downgrade(&core);
 
         let err = unsafe {
-            (self.plugin.vptr().create)(core.as_ffi(), str_to_ffi(&self.name), &mut self.impl_ptr)
+            (self.plugin.vptr().create)(
+                core.as_ffi(),
+                util::str_to_ffi(&self.name),
+                &mut self.impl_ptr,
+            )
         };
         self.to_result(err)
     }
@@ -94,7 +98,7 @@ impl Node {
     pub fn get_type(&self) -> &str {
         assert!(self.core.upgrade().is_some());
 
-        unsafe { ffi_to_str((self.plugin.vptr().get_type)(self.impl_ptr)).unwrap() }
+        unsafe { util::ffi_to_str((self.plugin.vptr().get_type)(self.impl_ptr)).unwrap() }
     }
 
     /// Returns the error message corresponding to a given error.
@@ -110,7 +114,7 @@ impl Node {
         } else {
             let msg = unsafe { (self.plugin.vptr().get_err_msg)(self.impl_ptr, err) };
 
-            unsafe { Some(ffi_to_str(msg).unwrap()) }
+            unsafe { Some(util::ffi_to_str(msg).unwrap()) }
         }
     }
 
@@ -127,7 +131,7 @@ impl Node {
             0 => Ok(()),
             x => {
                 let msg = unsafe {
-                    ffi_to_str((self.plugin.vptr().get_err_msg)(self.impl_ptr, x))
+                    util::ffi_to_str((self.plugin.vptr().get_err_msg)(self.impl_ptr, x))
                         .unwrap()
                         .to_string()
                 };

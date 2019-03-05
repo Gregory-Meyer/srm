@@ -22,12 +22,12 @@
 
 use super::{
     alloc::CacheAlignedAllocator,
-    core::{self, MessageBuilder},
+    core::{self, CoreBase, MessageBuilder},
+    error_code::ErrorCode,
     ffi,
     node::Node,
     plugin_loader::PluginLoader,
-    util::ffi_to_str,
-    *,
+    util, *,
 };
 
 use std::{
@@ -45,13 +45,13 @@ use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 
-pub struct Core {
+pub struct StaticCore {
     plugin_loader: Mutex<PluginLoader>,
     channels: Mutex<HashMap<String, Weak<Channel>>>,
     nodes: RwLock<HashMap<String, Arc<CoreInterface>>>,
 }
 
-pub fn add_node(core: Arc<Core>, name: String, tp: String) -> Result<(), NodeError> {
+pub fn add_node(core: &Arc<StaticCore>, name: String, tp: String) -> Result<(), NodeError> {
     let plugin = {
         let mut plugin_loader = core.plugin_loader.lock();
         plugin_loader.load(tp).map_err(|e| NodeError::Load(e))?
@@ -76,9 +76,9 @@ pub fn add_node(core: Arc<Core>, name: String, tp: String) -> Result<(), NodeErr
     Ok(())
 }
 
-impl Core {
-    pub fn new(paths: Vec<PathBuf>) -> Core {
-        Core {
+impl StaticCore {
+    pub fn new(paths: Vec<PathBuf>) -> StaticCore {
+        StaticCore {
             plugin_loader: Mutex::new(PluginLoader::new(paths)),
             channels: Mutex::new(HashMap::new()),
             nodes: RwLock::new(HashMap::new()),
@@ -110,7 +110,9 @@ impl Core {
     pub fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Subscriber, StaticCoreError> {
         assert!(params.callback.is_some());
 
-        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
+        let name = unsafe { util::ffi_to_str(params.topic) }
+            .unwrap()
+            .to_string();
         let channel = self.get_channel(name, params.msg_type)?;
 
         Subscriber::new(channel, params.callback.unwrap(), params.arg)
@@ -118,7 +120,9 @@ impl Core {
     }
 
     pub fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
-        let name = unsafe { ffi_to_str(params.topic) }.unwrap().to_string();
+        let name = unsafe { util::ffi_to_str(params.topic) }
+            .unwrap()
+            .to_string();
         let channel = self.get_channel(name, params.msg_type)?;
 
         Ok(Publisher { channel })
@@ -158,7 +162,7 @@ impl Core {
 }
 
 struct CoreInterface {
-    core: Weak<Core>,
+    core: Weak<StaticCore>,
     node: UnsafeCell<Arc<Node>>,
 }
 
@@ -226,7 +230,7 @@ impl core::Core for CoreInterface {
     }
 }
 
-impl core::CoreBase for CoreInterface {
+impl CoreBase for CoreInterface {
     srm_core_base_impl!(CoreInterface);
 }
 

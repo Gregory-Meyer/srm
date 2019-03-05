@@ -20,7 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
+use super::{Error, Subscriber};
+use crate::{ffi, util};
 
 use std::mem;
 
@@ -33,7 +34,7 @@ pub unsafe extern "C" fn get_channel_name_entry<S: Subscriber>(
 
     let name = (*(impl_ptr as *const S)).get_channel_name();
 
-    str_to_ffi(name)
+    util::str_to_ffi(name)
 }
 
 pub unsafe extern "C" fn get_channel_type_entry<S: Subscriber>(impl_ptr: *const c_void) -> u64 {
@@ -53,5 +54,5 @@ pub unsafe extern "C" fn disconnect_entry<S: Subscriber>(impl_ptr: *mut c_void) 
 pub unsafe extern "C" fn get_err_msg<S: Subscriber>(_: *const c_void, err: c_int) -> ffi::StrView {
     let err_obj = S::Error::from_code(err);
 
-    str_to_ffi(err_obj.what())
+    util::str_to_ffi(err_obj.what())
 }

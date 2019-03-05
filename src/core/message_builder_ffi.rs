@@ -20,7 +20,8 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
+use super::{Error, MessageBuilder};
+use crate::{ffi, util};
 
 use libc::{c_int, c_void};
 
@@ -46,5 +47,5 @@ pub unsafe extern "C" fn get_err_msg<B: MessageBuilder>(
 ) -> ffi::StrView {
     let err_obj = B::Error::from_code(err);
 
-    str_to_ffi(err_obj.what())
+    util::str_to_ffi(err_obj.what())
 }
