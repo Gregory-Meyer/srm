@@ -22,7 +22,10 @@
 
 use super::*;
 
-use std::{error::Error, fmt::{self, Display, Formatter}};
+use std::{
+    error::Error,
+    fmt::{self, Display, Formatter},
+};
 
 use libloading::Library;
 
@@ -51,16 +54,16 @@ impl NodePlugin {
             return Err(LoadError::VtblMissingFunction("get_err_msg"));
         }
 
-        Ok(NodePlugin{
+        Ok(NodePlugin {
             library,
-            vtbl: node::Vtbl{
+            vtbl: node::Vtbl {
                 create: vptr.create.unwrap(),
                 destroy: vptr.destroy.unwrap(),
                 run: vptr.run.unwrap(),
                 stop: vptr.stop.unwrap(),
                 get_type: vptr.get_type.unwrap(),
                 get_err_msg: vptr.get_err_msg.unwrap(),
-            }
+            },
         })
     }
 
@@ -69,9 +72,9 @@ impl NodePlugin {
     }
 }
 
-unsafe impl Send for NodePlugin { }
+unsafe impl Send for NodePlugin {}
 
-unsafe impl Sync for NodePlugin { }
+unsafe impl Sync for NodePlugin {}
 
 type GetVtblFn = unsafe extern "C" fn() -> *const ffi::NodeVtbl;
 
@@ -83,19 +86,17 @@ pub enum LoadError {
     VtblMissingFunction(&'static str),
 }
 
-impl Error for LoadError { }
+impl Error for LoadError {}
 
 impl Display for LoadError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            LoadError::NoLibraryFound
-                => write!(f, "no library found in search path"),
-            LoadError::LibraryMissingSymbol
-                => write!(f, "library missing symbol 'srm_Node_get_vtbl'"),
-            LoadError::VtblNull
-                => write!(f, "'srm_Node_get_vtbl' returned NULL"),
-            LoadError::VtblMissingFunction(name)
-                => write!(f, "vtbl missing function '{}'", name),
+            LoadError::NoLibraryFound => write!(f, "no library found in search path"),
+            LoadError::LibraryMissingSymbol => {
+                write!(f, "library missing symbol 'srm_Node_get_vtbl'")
+            }
+            LoadError::VtblNull => write!(f, "'srm_Node_get_vtbl' returned NULL"),
+            LoadError::VtblMissingFunction(name) => write!(f, "vtbl missing function '{}'", name),
         }
     }
 }

@@ -1,12 +1,7 @@
 #include <cassert>
 #include <cstdint>
 #include <algorithm>
-#include <atomic>
-#include <chrono>
 #include <fstream>
-#include <iostream>
-#include <mutex>
-#include <thread>
 #include <vector>
 
 #include <capnp/message.h>
@@ -19,10 +14,7 @@ constexpr std::uint64_t TYPE = 0x93c2012830d68d3cull;
 
 class Subscriber {
 public:
-    explicit Subscriber(SrmCore core) noexcept : core_(core) {
-        std::ios_base::sync_with_stdio(false);
-        std::cin.tie(nullptr);
-
+    explicit Subscriber(SrmCore core, SrmStrView name) noexcept : core_(core), name_(name) {
         SrmSubscribeParams params;
         params.msg_type = TYPE;
         params.topic = SrmStrView{ "foo", 3 };
@@ -57,11 +49,11 @@ public:
         Message::Reader reader = segment_reader.getRoot<Message>();
 
         const char *const data = reader.getMsg().begin();
-        const auto len = static_cast<std::streamsize>(reader.getMsg().size());
+        const auto len = static_cast<SrmIndex>(reader.getMsg().size());
 
-        mtx_.lock();
-        std::cout.write(data, len) << '\n';
-        mtx_.unlock();
+        [[gnu::unused]] const int res =
+            core_.vptr->log_info(core_.impl_ptr, SrmStrView{ data, len });
+        assert(res == 0);
     }
 
     static int callback_entry(SrmMsgView msg, void *arg) noexcept {
@@ -72,15 +64,14 @@ public:
 
 private:
     SrmCore core_;
+    SrmStrView name_;
     SrmSubscriber subscriber_;
-    std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(0);
-    std::mutex mtx_;
 };
 
 extern "C" {
 
-static int create(SrmCore core, void **impl) noexcept {
-    *impl = new Subscriber(core);
+static int create(SrmCore core, SrmStrView name, void **impl) noexcept {
+    *impl = new Subscriber(core, name);
 
     return 0;
 }

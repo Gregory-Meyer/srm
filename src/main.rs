@@ -22,10 +22,12 @@
 
 extern crate capnp;
 extern crate ctrlc;
-extern crate fnv;
+extern crate hashbrown;
+extern crate humantime;
 extern crate libc;
 extern crate libloading;
 extern crate lock_api;
+extern crate log;
 extern crate parking_lot;
 extern crate rayon;
 extern crate serde;
@@ -35,6 +37,7 @@ pub mod alloc;
 pub mod core;
 pub mod error_code;
 pub mod ffi;
+pub mod logging;
 pub mod node;
 pub mod node_plugin;
 pub mod plugin_loader;
@@ -44,35 +47,33 @@ pub mod util;
 pub use self::error_code::*;
 pub use self::util::*;
 
-use std::{env, fs, path::{PathBuf}, sync::Arc, thread};
+use std::{env, fs, path::PathBuf, sync::Arc};
 
 use serde::Deserialize;
 
 fn main() {
+    logging::init();
+
     let args: Vec<_> = env::args().collect();
     let graph_pathname = &args[1];
     let graph_string = fs::read_to_string(graph_pathname).expect("couldn't read node graph");
     let graph: NodeGraph = serde_yaml::from_str(&graph_string).expect("couldn't parse node graph");
-    let mut core = static_core::StaticCore::new(graph.path);
+    let core = Arc::new(static_core::Core::new(graph.path));
 
     for (name, tp) in graph.nodes.into_iter() {
-        if let Err(e) = core.add_node(name.0, tp.0) {
+        if let Err(e) = static_core::add_node(core.clone(), name.0, tp.0) {
             panic!("couldn't add node: {}", e);
         }
     }
 
-    let run_ptr = Arc::new(core);
-    let stop_ptr = run_ptr.clone();
-
-    let handle = thread::spawn(move || {
-        run_ptr.run();
-    });
+    let stop_ptr = core.clone();
 
     ctrlc::set_handler(move || {
         stop_ptr.stop();
-    }).expect("couldn't set ^C handler");
+    })
+    .expect("couldn't set ^C handler");
 
-    handle.join().unwrap();
+    core.run();
 }
 
 #[derive(Deserialize)]

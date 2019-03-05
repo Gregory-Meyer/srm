@@ -59,7 +59,7 @@ pub unsafe fn ffi_to_str<'a>(raw: ffi::StrView) -> Option<&'a str> {
 ///
 /// The StrView must not outlive the string.
 pub fn str_to_ffi(s: &str) -> ffi::StrView {
-    ffi::StrView{
+    ffi::StrView {
         data: s.as_ptr() as *const c_char,
         len: s.len() as ptrdiff_t,
     }

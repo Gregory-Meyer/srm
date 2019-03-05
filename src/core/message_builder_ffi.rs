@@ -20,11 +20,31 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use libc::{c_char, ptrdiff_t};
+use super::*;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct StrView {
-    pub data: *const c_char,
-    pub len: ptrdiff_t,
+use libc::{c_int, c_void};
+
+pub unsafe extern "C" fn alloc_segment_entry<B: MessageBuilder>(
+    impl_ptr: *mut c_void,
+    segment: *mut ffi::MsgSegment,
+) -> c_int {
+    assert!(!segment.is_null());
+
+    let alloc = &mut *(impl_ptr as *mut B);
+
+    let allocd = alloc.allocate_segment((*segment).len as u32);
+
+    (*segment).data = allocd.0;
+    (*segment).len = allocd.1 as ffi::Index;
+
+    0
+}
+
+pub unsafe extern "C" fn get_err_msg<B: MessageBuilder>(
+    _: *const c_void,
+    err: c_int,
+) -> ffi::StrView {
+    let err_obj = B::Error::from_code(err);
+
+    str_to_ffi(err_obj.what())
 }

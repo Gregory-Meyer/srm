@@ -27,7 +27,7 @@ use libc::{c_int, c_void};
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Core {
-    pub impl_ptr: *mut c_void,
+    pub impl_ptr: *const c_void,
     pub vptr: *const CoreVtbl,
 }
 
@@ -65,9 +65,16 @@ pub struct AdvertiseParams {
 #[derive(Copy, Clone, Debug)]
 pub struct CoreVtbl {
     pub get_type: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
-    pub subscribe: Option<unsafe extern "C" fn(*mut c_void, SubscribeParams, *mut Subscriber) -> c_int>,
-    pub advertise: Option<unsafe extern "C" fn(*mut c_void, AdvertiseParams, *mut Publisher) -> c_int>,
+    pub subscribe:
+        Option<unsafe extern "C" fn(*const c_void, SubscribeParams, *mut Subscriber) -> c_int>,
+    pub advertise:
+        Option<unsafe extern "C" fn(*const c_void, AdvertiseParams, *mut Publisher) -> c_int>,
     pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
+    pub log_error: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_warn: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_info: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_debug: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+    pub log_trace: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
 }
 
 #[repr(C)]

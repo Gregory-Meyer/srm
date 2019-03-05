@@ -38,7 +38,7 @@ extern "C" {
 #endif
 
 struct SrmNodeVtbl {
-    int (*create)(SrmCore, void**);
+    int (*create)(SrmCore, SrmStrView, void**);
     int (*destroy)(void*);
     int (*run)(void*);
     int (*stop)(void*);

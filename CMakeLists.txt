@@ -19,3 +19,5 @@ target_link_libraries(srm-publisher capnp)
 
 add_library(srm-subscriber SHARED src/subscriber.cpp capnp/message.capnp.c++)
 target_link_libraries(srm-subscriber capnp)
+
+install(TARGETS srm-publisher srm-subscriber LIBRARY DESTINATION lib)

@@ -20,49 +20,81 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
+use super::{core::CoreBase, node_plugin::NodePlugin, *};
 
-use std::{marker::PhantomData, ptr};
+use std::{
+    ptr,
+    sync::{Arc, Weak},
+};
 
 use libc::{c_int, c_void};
 
 /// Wrapper around ffi::Node and ffi::NodeVtbl.
 ///
 /// Implementations of Node must be thread-safe, so all functions take &self.
-pub struct Node<'c, 'v: 'c> {
+pub struct Node {
+    core: Weak<dyn CoreBase>,
+    plugin: Arc<NodePlugin>,
+    name: String,
     impl_ptr: *mut c_void,
-    vptr: &'v Vtbl,
-    phantom: PhantomData<&'c mut c_void>,
 }
 
-unsafe impl<'c, 'v> Send for Node<'c, 'v> { }
+struct EmptyCoreBase {}
 
-unsafe impl<'c, 'v> Sync for Node<'c, 'v> { }
+impl CoreBase for EmptyCoreBase {
+    fn as_ffi(&self) -> ffi::Core {
+        unimplemented!()
+    }
+}
 
-impl<'c, 'v> Node<'c, 'v> {
+unsafe impl Send for Node {}
+
+unsafe impl Sync for Node {}
+
+impl Node {
     /// Creates a new Node from the provided core and vtable.
-    pub fn new<C: core::Core>(core: &'c mut C, vptr: &'v Vtbl) -> Result<Node<'c, 'v>, ErrorCode<'v>> {
-        let mut node = Node{ impl_ptr: ptr::null_mut(), vptr, phantom: PhantomData };
+    pub fn new(plugin: Arc<NodePlugin>, name: String) -> Node {
+        Node {
+            core: Weak::<EmptyCoreBase>::new(),
+            plugin,
+            name,
+            impl_ptr: ptr::null_mut(),
+        }
+    }
 
-        let err = unsafe { (node.vptr.create)(core.as_ffi(), &mut node.impl_ptr) };
-        node.to_result(err).map(|_| node)
+    pub fn start(&mut self, core: Arc<dyn CoreBase>) -> Result<(), ErrorCode> {
+        assert!(self.impl_ptr.is_null());
+        assert!(self.core.upgrade().is_none());
+
+        self.core = Arc::downgrade(&core);
+
+        let err = unsafe {
+            (self.plugin.vptr().create)(core.as_ffi(), str_to_ffi(&self.name), &mut self.impl_ptr)
+        };
+        self.to_result(err)
     }
 
     /// Tells the node to begin computation. Will not return until the node shuts down.
-    pub fn run(&self) -> Result<(), ErrorCode<'static>> {
-        let err = unsafe { (self.vptr.run)(self.impl_ptr) };
+    pub fn run(&self) -> Result<(), ErrorCode> {
+        assert!(self.core.upgrade().is_some());
+
+        let err = unsafe { (self.plugin.vptr().run)(self.impl_ptr) };
         self.to_result(err)
     }
 
     /// Tells the node to stop computation. Should not block.
     pub fn stop(&self) -> Result<(), ErrorCode> {
-        let err = unsafe { (self.vptr.stop)(self.impl_ptr) };
+        assert!(self.core.upgrade().is_some());
+
+        let err = unsafe { (self.plugin.vptr().stop)(self.impl_ptr) };
         self.to_result(err)
     }
 
     /// Returns the string type of the node as it indicates.
     pub fn get_type(&self) -> &str {
-        unsafe { ffi_to_str((self.vptr.get_type)(self.impl_ptr)).unwrap() }
+        assert!(self.core.upgrade().is_some());
+
+        unsafe { ffi_to_str((self.plugin.vptr().get_type)(self.impl_ptr)).unwrap() }
     }
 
     /// Returns the error message corresponding to a given error.
@@ -71,20 +103,34 @@ impl<'c, 'v> Node<'c, 'v> {
     ///
     /// Panics if the implementation does not return a string to explain err.
     pub fn get_err_msg(&self, err: c_int) -> Option<&str> {
+        assert!(self.core.upgrade().is_some());
+
         if err == 0 {
             None
         } else {
-            unsafe { Some(ffi_to_str((self.vptr.get_err_msg)(self.impl_ptr, err)).unwrap()) }
-        }
+            let msg = unsafe { (self.plugin.vptr().get_err_msg)(self.impl_ptr, err) };
 
+            unsafe { Some(ffi_to_str(msg).unwrap()) }
+        }
     }
 
-    fn to_result<'a>(&self, err: c_int) -> Result<(), ErrorCode<'a>> {
+    pub fn name(&self) -> &str {
+        assert!(self.core.upgrade().is_some());
+
+        &self.name
+    }
+
+    fn to_result<'a>(&self, err: c_int) -> Result<(), ErrorCode> {
+        assert!(self.core.upgrade().is_some());
+
         match err {
             0 => Ok(()),
             x => {
-                let msg: &'a str =
-                    unsafe { ffi_to_str((self.vptr.get_err_msg)(self.impl_ptr, x)).unwrap() };
+                let msg = unsafe {
+                    ffi_to_str((self.plugin.vptr().get_err_msg)(self.impl_ptr, x))
+                        .unwrap()
+                        .to_string()
+                };
 
                 Err(ErrorCode::new(x, msg))
             }
@@ -92,24 +138,30 @@ impl<'c, 'v> Node<'c, 'v> {
     }
 }
 
-impl<'c, 'v> Drop for Node<'c, 'v> {
+impl Drop for Node {
     /// Calls vptr->destroy.
     ///
     /// # Panics
     ///
     /// Panics if the call to vptr.destroy returns nonzero.
     fn drop(&mut self) {
-        match unsafe { (self.vptr.destroy)(self.impl_ptr) } {
+        assert!(self.core.upgrade().is_some());
+
+        match unsafe { (self.plugin.vptr().destroy)(self.impl_ptr) } {
             0 => return,
-            x => panic!("couldn't drop node {:p}: {} ({})", self.impl_ptr,
-                        self.get_err_msg(x).unwrap(), x),
+            x => panic!(
+                "couldn't drop node {:p}: {} ({})",
+                self.impl_ptr,
+                self.get_err_msg(x).unwrap(),
+                x
+            ),
         }
     }
 }
 
 /// Identical to ffi::NodeVtbl, but with all members guaranteed non-null.
 pub struct Vtbl {
-    pub create: unsafe extern "C" fn(ffi::Core, *mut *mut c_void) -> c_int,
+    pub create: unsafe extern "C" fn(ffi::Core, ffi::StrView, *mut *mut c_void) -> c_int,
     pub destroy: unsafe extern "C" fn(*mut c_void) -> c_int,
     pub run: unsafe extern "C" fn(*mut c_void) -> c_int,
     pub stop: unsafe extern "C" fn(*mut c_void) -> c_int,

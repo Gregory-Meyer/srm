@@ -20,44 +20,47 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
+use super::node_plugin::{LoadError, NodePlugin};
 
-use std::{collections::hash_map::Entry, path::{Path, PathBuf}};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use hashbrown::{hash_map::Entry, HashMap};
 use libloading::Library;
-use fnv::{FnvBuildHasher, FnvHashMap};
 
 pub struct PluginLoader {
     paths: Vec<PathBuf>,
-    plugins: FnvHashMap<String, (Box<node_plugin::NodePlugin>, *const node_plugin::NodePlugin)>,
+    plugins: HashMap<String, Arc<NodePlugin>>,
 }
 
 impl PluginLoader {
     pub fn new(paths: Vec<PathBuf>) -> PluginLoader {
-        PluginLoader{ paths, plugins: FnvHashMap::with_hasher(FnvBuildHasher::default()) }
+        PluginLoader {
+            paths,
+            plugins: HashMap::new(),
+        }
     }
 
-    pub fn load(&mut self, name: String) -> Result<&node_plugin::NodePlugin, node_plugin::LoadError> {
+    pub fn load(&mut self, name: String) -> Result<Arc<NodePlugin>, LoadError> {
         let entry = self.plugins.entry(name);
 
         match entry {
-            Entry::Occupied(e) => Ok(unsafe { & *e.get().1 }),
+            Entry::Occupied(e) => Ok(e.get().clone()),
             Entry::Vacant(e) => {
-                let plugin = PluginLoader::do_load(&self.paths, e.key())?;
-
-                let ptr = Box::into_raw(Box::new(plugin));
-                e.insert((unsafe { Box::from_raw(ptr) }, ptr));
+                let plugin = Arc::new(PluginLoader::do_load(&self.paths, e.key())?);
+                e.insert(plugin.clone());
 
                 // we never delete a NodePlugin until the PluginLoader is dropped, so this is safe
                 // since the lifetime of the returned reference is the same as the lifetime of this
                 // PluginLoader
-                Ok(unsafe { & *ptr })
+                Ok(plugin)
             }
         }
     }
 
-    fn do_load(paths: &[PathBuf], name: &str)
-    -> Result<node_plugin::NodePlugin, node_plugin::LoadError> {
+    fn do_load(paths: &[PathBuf], name: &str) -> Result<NodePlugin, LoadError> {
         for pathname in paths.iter().map(|p| make_lib_name(p, name)) {
             let lib = match Library::new(&pathname) {
                 Ok(l) => l,
@@ -68,16 +71,16 @@ impl PluginLoader {
                 }
             };
 
-            return node_plugin::NodePlugin::new(lib);
+            return NodePlugin::new(lib);
         }
 
-        Err(node_plugin::LoadError::NoLibraryFound)
+        Err(LoadError::NoLibraryFound)
     }
 }
 
-unsafe impl Send for PluginLoader { }
+unsafe impl Send for PluginLoader {}
 
-unsafe impl Sync for PluginLoader { }
+unsafe impl Sync for PluginLoader {}
 
 fn make_lib_name<S: AsRef<str>>(dirname: &Path, name: S) -> PathBuf {
     let mut pathname = dirname.to_path_buf();
