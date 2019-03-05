@@ -51,7 +51,7 @@ pub struct StaticCore {
     nodes: RwLock<HashMap<String, Arc<CoreInterface>>>,
 }
 
-pub fn add_node(core: Arc<StaticCore>, name: String, tp: String) -> Result<(), NodeError> {
+pub fn add_node(core: &Arc<StaticCore>, name: String, tp: String) -> Result<(), NodeError> {
     let plugin = {
         let mut plugin_loader = core.plugin_loader.lock();
         plugin_loader.load(tp).map_err(|e| NodeError::Load(e))?
