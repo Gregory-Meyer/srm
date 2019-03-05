@@ -34,9 +34,7 @@ use log::{LevelFilter, Log, Metadata, Record};
 use parking_lot::Mutex;
 
 pub fn init() {
-    let logger = Box::new(AsyncLogger::new());
-    log::set_boxed_logger(logger).unwrap();
-    log::set_max_level(LevelFilter::Info);
+    init_with_polling_period(DEFAULT_PERIOD);
 }
 
 pub fn init_with_polling_period(polling_period: Duration) {
@@ -54,10 +52,6 @@ struct AsyncLogger {
 const DEFAULT_PERIOD: Duration = Duration::from_millis(100);
 
 impl AsyncLogger {
-    fn new() -> AsyncLogger {
-        AsyncLogger::with_polling_period(DEFAULT_PERIOD)
-    }
-
     fn with_polling_period(polling_period: Duration) -> AsyncLogger {
         let sink = Arc::new(Sink::new());
         let keep_running = Arc::new(AtomicBool::new(true));
