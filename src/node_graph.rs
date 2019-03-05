@@ -43,7 +43,7 @@ pub fn spawn_core() -> Result<Arc<StaticCore>, GraphError> {
             NodeGraph::from_reader(&mut io::stdin())?
         } else {
             info!("reading node graph from '{}'", filename.to_string_lossy());
-            let file = File::open(&filename).map_err(|e| GraphError::File(e))?;
+            let mut file = File::open(&filename).map_err(|e| GraphError::File(e))?;
 
             NodeGraph::from_reader(&mut file)?
         }
