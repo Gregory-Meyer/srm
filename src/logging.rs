@@ -39,6 +39,12 @@ pub fn init() {
     log::set_max_level(LevelFilter::Info);
 }
 
+pub fn init_with_polling_period(polling_period: Duration) {
+    let logger = Box::new(AsyncLogger::with_polling_period(polling_period));
+    log::set_boxed_logger(logger).unwrap();
+    log::set_max_level(LevelFilter::Info);
+}
+
 struct AsyncLogger {
     sink: Arc<Sink>,
     keep_running: Arc<AtomicBool>,
@@ -49,10 +55,10 @@ const DEFAULT_PERIOD: Duration = Duration::from_millis(100);
 
 impl AsyncLogger {
     fn new() -> AsyncLogger {
-        AsyncLogger::with_period(DEFAULT_PERIOD)
+        AsyncLogger::with_polling_period(DEFAULT_PERIOD)
     }
 
-    fn with_period(period: Duration) -> AsyncLogger {
+    fn with_polling_period(polling_period: Duration) -> AsyncLogger {
         let sink = Arc::new(Sink::new());
         let keep_running = Arc::new(AtomicBool::new(true));
 
@@ -62,7 +68,7 @@ impl AsyncLogger {
         let sink_thread = Some(thread::spawn(move || {
             while child_keep_running.load(Ordering::Relaxed) {
                 child_sink.pop();
-                thread::sleep(period);
+                thread::sleep(polling_period);
             }
         }));
 
