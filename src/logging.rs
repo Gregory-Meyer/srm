@@ -21,8 +21,7 @@
 // SOFTWARE.
 
 use std::{
-    env,
-    mem,
+    env, mem,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -31,7 +30,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use log::{LevelFilter, Log, Metadata, Record, info};
+use log::{info, LevelFilter, Log, Metadata, Record};
 use parking_lot::Mutex;
 
 pub fn init() {
@@ -47,7 +46,10 @@ pub fn init_with_polling_period(polling_period: Duration) {
 
     if let Some(maybe_unparsed) = defaulted {
         if let Some(unparsed) = maybe_unparsed {
-            info!("couldn't parse {} as a maximum logging level, using INFO", unparsed);
+            info!(
+                "couldn't parse '{}' as a maximum logging level, using INFO",
+                unparsed
+            );
         } else {
             info!("no maximum logging level provided, using INFO");
         }
