@@ -20,12 +20,12 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
+use super::ffi;
 
 use std::error;
 
 use capnp::message::Allocator;
-use libc::{c_char, c_int, ptrdiff_t};
+use libc::c_int;
 
 pub trait CoreBase: Send + Sync {
     fn as_ffi(&self) -> ffi::Core;

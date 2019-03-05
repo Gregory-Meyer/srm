@@ -20,39 +20,20 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::{Error, Subscriber};
-use crate::{ffi, util};
+use crate::static_core::{self, StaticCore};
 
-use std::mem;
+use std::{path::PathBuf, sync::Arc};
 
-use libc::{c_int, c_void};
+use serde::Deserialize;
 
-pub unsafe extern "C" fn get_channel_name_entry<S: Subscriber>(
-    impl_ptr: *const c_void,
-) -> ffi::StrView {
-    assert!(!impl_ptr.is_null());
+#[derive(Deserialize)]
+struct Name(String);
 
-    let name = (*(impl_ptr as *const S)).get_channel_name();
+#[derive(Deserialize)]
+struct Type(String);
 
-    util::str_to_ffi(name)
-}
-
-pub unsafe extern "C" fn get_channel_type_entry<S: Subscriber>(impl_ptr: *const c_void) -> u64 {
-    assert!(!impl_ptr.is_null());
-
-    (*(impl_ptr as *const S)).get_channel_type()
-}
-
-pub unsafe extern "C" fn disconnect_entry<S: Subscriber>(impl_ptr: *mut c_void) -> c_int {
-    assert!(!impl_ptr.is_null());
-
-    mem::drop(Box::from_raw(impl_ptr as *mut S));
-
-    0
-}
-
-pub unsafe extern "C" fn get_err_msg<S: Subscriber>(_: *const c_void, err: c_int) -> ffi::StrView {
-    let err_obj = S::Error::from_code(err);
-
-    util::str_to_ffi(err_obj.what())
+#[derive(Deserialize)]
+struct NodeGraph {
+    path: Vec<PathBuf>,
+    nodes: Vec<(Name, Type)>,
 }

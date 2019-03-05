@@ -29,11 +29,8 @@ use std::{
     mem,
 };
 
-use capnp::message::{Allocator, Builder};
+use capnp::message::Allocator;
 use libc::c_int;
-
-/// Cache aligned message builder.
-pub type CacheAlignedBuilder = Builder<CacheAlignedAllocator>;
 
 /// Allocates cache-aligned message segments.
 pub struct CacheAlignedAllocator {

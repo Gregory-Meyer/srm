@@ -20,16 +20,17 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::*;
+use super::{Core, Error, Publisher, Subscriber};
+use crate::{ffi, util};
 
-use libc::c_void;
+use libc::{c_char, c_int, c_void};
 
 pub unsafe extern "C" fn get_type_entry<C: Core>(impl_ptr: *const c_void) -> ffi::StrView {
     assert!(!impl_ptr.is_null());
 
     let tp = (*(impl_ptr as *const C)).get_type();
 
-    str_to_ffi(tp)
+    util::str_to_ffi(tp)
 }
 
 pub unsafe extern "C" fn subscribe_entry<C: Core>(
@@ -73,7 +74,7 @@ pub unsafe extern "C" fn get_err_msg<C: Core>(_: *const c_void, err: c_int) -> f
 
     ffi::StrView {
         data: msg.as_ptr() as *const c_char,
-        len: msg.len() as ptrdiff_t,
+        len: msg.len() as ffi::Index,
     }
 }
 
@@ -83,7 +84,7 @@ pub unsafe extern "C" fn log_error_entry<C: Core>(
 ) -> c_int {
     assert!(!impl_ptr.is_null());
 
-    match (*(impl_ptr as *const C)).log_error(ffi_to_str(msg).unwrap()) {
+    match (*(impl_ptr as *const C)).log_error(util::ffi_to_str(msg).unwrap()) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
@@ -95,7 +96,7 @@ pub unsafe extern "C" fn log_warn_entry<C: Core>(
 ) -> c_int {
     assert!(!impl_ptr.is_null());
 
-    match (*(impl_ptr as *const C)).log_warn(ffi_to_str(msg).unwrap()) {
+    match (*(impl_ptr as *const C)).log_warn(util::ffi_to_str(msg).unwrap()) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
@@ -107,7 +108,7 @@ pub unsafe extern "C" fn log_info_entry<C: Core>(
 ) -> c_int {
     assert!(!impl_ptr.is_null());
 
-    match (*(impl_ptr as *const C)).log_info(ffi_to_str(msg).unwrap()) {
+    match (*(impl_ptr as *const C)).log_info(util::ffi_to_str(msg).unwrap()) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
@@ -119,7 +120,7 @@ pub unsafe extern "C" fn log_debug_entry<C: Core>(
 ) -> c_int {
     assert!(!impl_ptr.is_null());
 
-    match (*(impl_ptr as *const C)).log_debug(ffi_to_str(msg).unwrap()) {
+    match (*(impl_ptr as *const C)).log_debug(util::ffi_to_str(msg).unwrap()) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
@@ -131,7 +132,7 @@ pub unsafe extern "C" fn log_trace_entry<C: Core>(
 ) -> c_int {
     assert!(!impl_ptr.is_null());
 
-    match (*(impl_ptr as *const C)).log_trace(ffi_to_str(msg).unwrap()) {
+    match (*(impl_ptr as *const C)).log_trace(util::ffi_to_str(msg).unwrap()) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
