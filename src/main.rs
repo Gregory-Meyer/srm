@@ -45,33 +45,33 @@ mod plugin_loader;
 mod static_core;
 mod util;
 
-use static_core::StaticCore;
+use std::{path::PathBuf, process};
 
-use std::{env, fs, path::PathBuf, sync::Arc};
-
+use log::error;
 use serde::Deserialize;
 
 fn main() {
     logging::init();
 
-    let args: Vec<_> = env::args().collect();
-    let graph_pathname = &args[1];
-    let graph_string = fs::read_to_string(graph_pathname).expect("couldn't read node graph");
-    let graph: NodeGraph = serde_yaml::from_str(&graph_string).expect("couldn't parse node graph");
-    let core = Arc::new(StaticCore::new(graph.path));
-
-    for (name, tp) in graph.nodes.into_iter() {
-        if let Err(e) = static_core::add_node(core.clone(), name.0, tp.0) {
-            panic!("couldn't add node: {}", e);
+    let core = match node_graph::spawn_core() {
+        Ok(c) => c,
+        Err(e) => {
+            error!("couldn't spawn core from node graph: {}", e);
+            process::exit(1);
         }
-    }
+    };
 
-    let stop_ptr = core.clone();
+    let other_core = core.clone();
 
-    ctrlc::set_handler(move || {
-        stop_ptr.stop();
-    })
-    .expect("couldn't set ^C handler");
+    match ctrlc::set_handler(move || {
+        other_core.stop();
+    }) {
+        Ok(_) => (),
+        Err(e) => {
+            error!("couldn't set ^C handler: {}", e);
+            process::exit(1);
+        }
+    };
 
     core.run();
 }
