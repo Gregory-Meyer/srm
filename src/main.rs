@@ -57,6 +57,8 @@ fn main() {
         Ok(c) => c,
         Err(e) => {
             error!("couldn't spawn core from node graph: {}", e);
+            log::logger().flush();
+
             process::exit(1);
         }
     };
@@ -69,6 +71,8 @@ fn main() {
         Ok(_) => (),
         Err(e) => {
             error!("couldn't set ^C handler: {}", e);
+            log::logger().flush();
+
             process::exit(1);
         }
     };
