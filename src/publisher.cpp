@@ -1,5 +1,7 @@
 #include <cassert>
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
 #include <atomic>
 #include <chrono>
 #include <thread>
@@ -11,6 +13,16 @@
 #include "../capnp/message.capnp.h"
 
 constexpr std::uint64_t TYPE = 0x93c2012830d68d3cull;
+
+namespace {
+
+[[gnu::format(printf, 1, 2)]] std::string format(const char *format, ...);
+
+SrmStrView as_view(const std::string &s) noexcept;
+
+SrmStrView operator""_sv(const char *data, std::size_t len) noexcept;
+
+} // namespace
 
 class RemoteBuilder : public capnp::MessageBuilder {
 public:
@@ -38,10 +50,16 @@ public:
     explicit Publisher(SrmCore core, SrmStrView name) noexcept : core_(core), name_(name) {
         SrmAdvertiseParams params;
         params.msg_type = TYPE;
-        params.topic = SrmStrView{"foo", 3};
+        params.topic = "foo"_sv;
 
         [[gnu::unused]] const int res = core_.vptr->advertise(core_.impl_ptr, params, &publisher_);
         assert(res == 0);
+
+        const auto name_len = static_cast<int>(name_.len);
+        param_name_ = format(".%*.*s.param", name_len, name_len, name_.data);
+        [[gnu::unused]] const int param_res =
+            core_.vptr->param_seti(core_.impl_ptr, as_view(param_name_), 0);
+        assert(param_res == 0);
     }
 
     ~Publisher() {
@@ -51,11 +69,16 @@ public:
 
     void run() noexcept {
         while (keep_running_.load()) {
-            [[gnu::unused]] const int res =
+            [[gnu::unused]] const int pub_res =
                 publisher_.vptr->publish(publisher_.impl_ptr, do_publish_entry, this);
-            assert(res == 0);
+            assert(pub_res == 0);
 
-            // std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::ptrdiff_t value;
+            [[gnu::unused]] const int param_res =
+                core_.vptr->param_geti(core_.impl_ptr, as_view(param_name_), &value);
+            assert(param_res == 0);
+
+            core_.vptr->log_info(core_.impl_ptr, as_view(format("%s = %td", param_name_.data(), value)));
         }
     }
 
@@ -81,43 +104,81 @@ private:
     SrmStrView name_;
     SrmPublisher publisher_;
     std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(true);
+    std::string param_name_;
 };
 
-extern "C" {
+namespace {
 
-static int create(SrmCore core, SrmStrView name, void **impl) noexcept {
+[[gnu::format(printf, 1, 2)]] std::string format(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    va_list args_copy;
+    va_copy(args_copy, args);
+
+    const int bufsz = std::vsnprintf(nullptr, 0, format, args_copy);
+    va_end(args_copy);
+
+    assert(bufsz >= 0);
+    std::string buf;
+
+    try {
+        buf.resize(static_cast<std::string::size_type>(bufsz));
+    } catch (...) {
+        va_end(args);
+
+        throw;
+    }
+
+    [[gnu::unused]] const int ret =
+        std::vsnprintf(&buf.front(), static_cast<std::size_t>(buf.size()) + 1, format, args);
+    va_end(args);
+    assert(ret >= 0);
+
+    return buf;
+}
+
+SrmStrView as_view(const std::string &s) noexcept {
+    return SrmStrView{s.data(), static_cast<SrmIndex>(s.size())};
+}
+
+SrmStrView operator""_sv(const char *data, std::size_t len) noexcept {
+    return SrmStrView{data, static_cast<SrmIndex>(len)};
+}
+
+int create(SrmCore core, SrmStrView name, void **impl) noexcept {
     *impl = new Publisher(core, name);
 
     return 0;
 }
 
-static int destroy(void *impl) noexcept {
+int destroy(void *impl) noexcept {
     delete static_cast<Publisher*>(impl);
 
     return 0;
 }
 
-static int run(void *impl) noexcept {
+int run(void *impl) noexcept {
     static_cast<Publisher*>(impl)->run();
 
     return 0;
 }
 
-static int stop(void *impl) noexcept {
+int stop(void *impl) noexcept {
     static_cast<Publisher*>(impl)->stop();
 
     return 0;
 }
 
-static SrmStrView get_type(const void*) noexcept {
+SrmStrView get_type(const void*) noexcept {
     return {"c++/publisher", 13};
 }
 
-static SrmStrView get_err_msg(const void*, int) noexcept {
+SrmStrView get_err_msg(const void*, int) noexcept {
     return SrmStrView{nullptr, 0};
 }
 
-} // extern "C"
+} // namespace
 
 static const SrmNodeVtbl vtbl = {
     create,
