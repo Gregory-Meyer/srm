@@ -30,6 +30,7 @@ extern crate lock_api;
 extern crate log;
 extern crate parking_lot;
 extern crate rayon;
+extern crate regex;
 extern crate serde;
 extern crate serde_yaml;
 
@@ -45,10 +46,9 @@ mod plugin_loader;
 mod static_core;
 mod util;
 
-use std::{path::PathBuf, process};
+use std::process;
 
-use log::error;
-use serde::Deserialize;
+use log::{error, info};
 
 fn main() {
     logging::init();
@@ -66,6 +66,7 @@ fn main() {
     let other_core = core.clone();
 
     match ctrlc::set_handler(move || {
+        info!("^C received, stopping...");
         other_core.stop();
     }) {
         Ok(_) => (),
@@ -78,16 +79,5 @@ fn main() {
     };
 
     core.run();
-}
-
-#[derive(Deserialize)]
-struct Name(String);
-
-#[derive(Deserialize)]
-struct Type(String);
-
-#[derive(Deserialize)]
-struct NodeGraph {
-    path: Vec<PathBuf>,
-    nodes: Vec<(Name, Type)>,
+    log::logger().flush();
 }

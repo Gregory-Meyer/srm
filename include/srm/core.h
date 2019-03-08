@@ -62,16 +62,44 @@ struct SrmAdvertiseParams {
     SrmStrView topic;
 };
 
+typedef enum SrmParamType {
+    SRM_INTEGER,
+    SRM_BOOLEAN,
+    SRM_REAL,
+    SRM_STRING
+} SrmParamType;
+
 struct SrmCoreVtbl {
     SrmStrView (*get_type)(const void*);
+
     int (*subscribe)(const void*, SrmSubscribeParams, SrmSubscriber*);
     int (*advertise)(const void*, SrmAdvertiseParams, SrmPublisher*);
+
     SrmStrView (*get_err_msg)(const void*, int);
-    int (*log_error)(const void*, SrmStrView msg);
-    int (*log_warn)(const void*, SrmStrView msg);
-    int (*log_info)(const void*, SrmStrView msg);
-    int (*log_debug)(const void*, SrmStrView msg);
-    int (*log_trace)(const void*, SrmStrView msg);
+
+    int (*log_error)(const void*, SrmStrView);
+    int (*log_warn)(const void*, SrmStrView);
+    int (*log_info)(const void*, SrmStrView);
+    int (*log_debug)(const void*, SrmStrView);
+    int (*log_trace)(const void*, SrmStrView);
+
+    int (*param_type)(const void*, SrmStrView, int*);
+
+    int (*param_seti)(const void*, SrmStrView, ptrdiff_t);
+    int (*param_geti)(const void*, SrmStrView, ptrdiff_t*);
+    int (*param_swapi)(const void*, SrmStrView, ptrdiff_t, ptrdiff_t*);
+
+    int (*param_setb)(const void*, SrmStrView, int);
+    int (*param_getb)(const void*, SrmStrView, int*);
+    int (*param_swapb)(const void*, SrmStrView, int, int*);
+
+    int (*param_setr)(const void*, SrmStrView, double);
+    int (*param_getr)(const void*, SrmStrView, double*);
+    int (*param_swapr)(const void*, SrmStrView, double, double*);
+
+    int (*param_sets)(const void*, SrmStrView, SrmStrView);
+    int (*param_gets)(const void*, SrmStrView, SrmString*);
+    int (*param_swaps)(const void*, SrmStrView, SrmStrView, SrmString*);
 };
 
 struct SrmSubscriberVtbl {

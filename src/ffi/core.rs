@@ -63,18 +63,53 @@ pub struct AdvertiseParams {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+#[allow(non_camel_case_types)]
+pub enum ParamType {
+    SRM_INTEGER,
+    SRM_BOOLEAN,
+    SRM_REAL,
+    SRM_STRING,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct CoreVtbl {
     pub get_type: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
+
     pub subscribe:
         Option<unsafe extern "C" fn(*const c_void, SubscribeParams, *mut Subscriber) -> c_int>,
     pub advertise:
         Option<unsafe extern "C" fn(*const c_void, AdvertiseParams, *mut Publisher) -> c_int>,
+
     pub get_err_msg: Option<unsafe extern "C" fn(*const c_void, c_int) -> StrView>,
+
     pub log_error: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
     pub log_warn: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
     pub log_info: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
     pub log_debug: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
     pub log_trace: Option<unsafe extern "C" fn(*const c_void, StrView) -> c_int>,
+
+    pub param_type: Option<unsafe extern "C" fn(*const c_void, StrView, *mut c_int) -> c_int>,
+
+    pub param_seti: Option<unsafe extern "C" fn(*const c_void, StrView, isize) -> c_int>,
+    pub param_geti: Option<unsafe extern "C" fn(*const c_void, StrView, *mut isize) -> c_int>,
+    pub param_swapi:
+        Option<unsafe extern "C" fn(*const c_void, StrView, isize, *mut isize) -> c_int>,
+
+    pub param_setb: Option<unsafe extern "C" fn(*const c_void, StrView, c_int) -> c_int>,
+    pub param_getb: Option<unsafe extern "C" fn(*const c_void, StrView, *mut c_int) -> c_int>,
+    pub param_swapb:
+        Option<unsafe extern "C" fn(*const c_void, StrView, c_int, *mut c_int) -> c_int>,
+
+    pub param_setr: Option<unsafe extern "C" fn(*const c_void, StrView, f64) -> c_int>,
+    pub param_getr: Option<unsafe extern "C" fn(*const c_void, StrView, *mut f64) -> c_int>,
+    pub param_swapr: Option<unsafe extern "C" fn(*const c_void, StrView, f64, *mut f64) -> c_int>,
+
+    pub param_sets: Option<unsafe extern "C" fn(*const c_void, StrView, StrView) -> c_int>,
+    pub param_gets:
+        Option<unsafe extern "C" fn(*const c_void, StrView, *mut util::String) -> c_int>,
+    pub param_swaps:
+        Option<unsafe extern "C" fn(*const c_void, StrView, StrView, *mut util::String) -> c_int>,
 }
 
 #[repr(C)]

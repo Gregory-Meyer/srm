@@ -1,6 +1,6 @@
 [package]
 name = "srm"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Gregory Meyer <gregjm@umich.edu>"]
 edition = "2018"
 
@@ -16,5 +16,6 @@ lock_api = "^0.1.5"
 log = { version = "^0.4.6", features = ["std"] }
 parking_lot = "^0.7.1"
 rayon = "^1.0.3"
+regex = "^1.1.2"
 serde = { version = "^1.0.88", features = ["derive"] }
 serde_yaml = "^0.8.8"

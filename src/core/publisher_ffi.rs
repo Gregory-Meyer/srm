@@ -27,9 +27,7 @@ use std::mem;
 
 use libc::{c_int, c_void};
 
-pub unsafe extern "C" fn get_channel_name_entry<P: Publisher>(
-    impl_ptr: *const c_void,
-) -> ffi::StrView {
+pub unsafe extern "C" fn get_channel_name<P: Publisher>(impl_ptr: *const c_void) -> ffi::StrView {
     assert!(!impl_ptr.is_null());
 
     let name = (*(impl_ptr as *const P)).get_channel_name();
@@ -37,13 +35,13 @@ pub unsafe extern "C" fn get_channel_name_entry<P: Publisher>(
     util::str_to_ffi(name)
 }
 
-pub unsafe extern "C" fn get_channel_type_entry<P: Publisher>(impl_ptr: *const c_void) -> u64 {
+pub unsafe extern "C" fn get_channel_type<P: Publisher>(impl_ptr: *const c_void) -> u64 {
     assert!(!impl_ptr.is_null());
 
     (*(impl_ptr as *const P)).get_channel_type()
 }
 
-pub unsafe extern "C" fn publish_entry<P: Publisher>(
+pub unsafe extern "C" fn publish<P: Publisher>(
     impl_ptr: *mut c_void,
     publish_fn: Option<ffi::PublishFn>,
     arg: *mut c_void,
@@ -66,7 +64,7 @@ pub unsafe extern "C" fn publish_entry<P: Publisher>(
     }
 }
 
-pub unsafe extern "C" fn disconnect_entry<P: Publisher>(impl_ptr: *mut c_void) -> c_int {
+pub unsafe extern "C" fn disconnect<P: Publisher>(impl_ptr: *mut c_void) -> c_int {
     mem::drop(Box::from_raw(impl_ptr as *mut P));
 
     0

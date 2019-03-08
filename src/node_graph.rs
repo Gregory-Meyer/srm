@@ -20,13 +20,13 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use crate::static_core::{self, NodeError, StaticCore};
+use crate::static_core::{self, NodeError, Param, StaticCore};
 
 use std::{
     env,
     error::Error,
-    fs::File,
     fmt::{self, Display, Formatter},
+    fs::File,
     io::{self, Read},
     path::PathBuf,
     sync::Arc,
@@ -34,6 +34,7 @@ use std::{
 
 use hashbrown::HashSet;
 use log::info;
+use regex::Regex;
 use serde::Deserialize;
 
 pub fn spawn_core() -> Result<Arc<StaticCore>, GraphError> {
@@ -58,7 +59,8 @@ pub fn spawn_core() -> Result<Arc<StaticCore>, GraphError> {
 #[derive(Deserialize)]
 struct NodeGraph {
     path: Vec<PathBuf>,
-    nodes: Vec<(String, String)>, // (name, type)
+    nodes: Vec<(String, String)>,         // (name, type)
+    params: Option<Vec<(String, Param)>>, // (key, value)
 }
 
 impl NodeGraph {
@@ -69,13 +71,24 @@ impl NodeGraph {
             .read_to_string(&mut buf)
             .map_err(|e| GraphError::Input(e))?;
 
-        let graph: NodeGraph = serde_yaml::from_str(&buf).map_err(|e| GraphError::Deserialize(e))?;
+        let graph: NodeGraph =
+            serde_yaml::from_str(&buf).map_err(|e| GraphError::Deserialize(e))?;
 
         {
             let mut names = HashSet::new();
             for name in graph.nodes.iter().map(|(n, _)| n.as_str()) {
                 if !names.insert(name) {
                     return Err(GraphError::DuplicateName(name.to_string()));
+                }
+            }
+        }
+
+        if let Some(ref params) = graph.params {
+            let resolved = Regex::new(r"^(?:\.[^.~]+)+$").unwrap();
+
+            for key in params.iter().map(|(k, _)| k) {
+                if !resolved.is_match(key) {
+                    return Err(GraphError::InvalidParamKey(key.clone()));
                 }
             }
         }
@@ -90,6 +103,12 @@ impl NodeGraph {
             static_core::add_node(&core, name, tp)?;
         }
 
+        if let Some(params) = self.params {
+            for (key, value) in params.into_iter() {
+                core.param_set(key, value);
+            }
+        }
+
         Ok(core)
     }
 }
@@ -101,6 +120,7 @@ pub enum GraphError {
     Deserialize(serde_yaml::Error),
     DuplicateName(String),
     Node(NodeError),
+    InvalidParamKey(String),
 }
 
 impl Error for GraphError {}
@@ -111,8 +131,11 @@ impl Display for GraphError {
             GraphError::File(e) => write!(f, "couldn't open file for reading: {}", e),
             GraphError::Input(e) => write!(f, "couldn't read from file: {}", e),
             GraphError::Deserialize(e) => write!(f, "input wasn't valid YAML: {}", e),
-            GraphError::DuplicateName(n) => write!(f, "input contained duplicate node name '{}'", n),
+            GraphError::DuplicateName(n) => {
+                write!(f, "input contained duplicate node name '{}'", n)
+            }
             GraphError::Node(e) => write!(f, "couldn't initialize core from graph: {}", e),
+            GraphError::InvalidParamKey(n) => write!(f, "invalid param name '{}'", n),
         }
     }
 }
