@@ -27,6 +27,13 @@ use std::error;
 use capnp::message::Allocator;
 use libc::c_int;
 
+pub enum ParamType {
+    Integer,
+    Boolean,
+    Real,
+    String,
+}
+
 pub trait CoreBase: Send + Sync {
     fn as_ffi(&self) -> ffi::Core;
 }
@@ -39,18 +46,31 @@ pub trait Core: Send + Sync + CoreBase {
     fn get_type(&self) -> &str;
 
     fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Self::Subscriber, Self::Error>;
-
     fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Self::Publisher, Self::Error>;
 
     fn log_error(&self, msg: &str) -> Result<(), Self::Error>;
-
     fn log_warn(&self, msg: &str) -> Result<(), Self::Error>;
-
     fn log_info(&self, msg: &str) -> Result<(), Self::Error>;
-
     fn log_debug(&self, msg: &str) -> Result<(), Self::Error>;
-
     fn log_trace(&self, msg: &str) -> Result<(), Self::Error>;
+
+    fn param_type(&self, key: &str) -> Result<ParamType, Self::Error>;
+
+    fn param_seti(&self, key: &str, value: isize) -> Result<(), Self::Error>;
+    fn param_geti(&self, key: &str) -> Result<isize, Self::Error>;
+    fn param_swapi(&self, key: &str, value: isize) -> Result<isize, Self::Error>;
+
+    fn param_setb(&self, key: &str, value: bool) -> Result<(), Self::Error>;
+    fn param_getb(&self, key: &str) -> Result<bool, Self::Error>;
+    fn param_swapb(&self, key: &str, value: bool) -> Result<bool, Self::Error>;
+
+    fn param_setr(&self, key: &str, value: f64) -> Result<(), Self::Error>;
+    fn param_getr(&self, key: &str) -> Result<f64, Self::Error>;
+    fn param_swapr(&self, key: &str, value: f64) -> Result<f64, Self::Error>;
+
+    fn param_sets(&self, key: &str, value: String) -> Result<(), Self::Error>;
+    fn param_gets(&self, key: &str) -> Result<String, Self::Error>;
+    fn param_swaps(&self, key: &str, value: String) -> Result<String, Self::Error>;
 }
 
 pub trait Publisher: Send {

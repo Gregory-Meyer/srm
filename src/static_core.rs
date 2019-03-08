@@ -22,7 +22,7 @@
 
 use super::{
     alloc::CacheAlignedAllocator,
-    core::{self, CoreBase, MessageBuilder},
+    core::{self, CoreBase, MessageBuilder, ParamType},
     error_code::ErrorCode,
     ffi,
     node::Node,
@@ -227,6 +227,58 @@ impl core::Core for CoreInterface {
         trace!(target: self.name(), "{}", msg);
 
         Ok(())
+    }
+
+    fn param_type(&self, key: &str) -> Result<ParamType, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_seti(&self, key: &str, value: isize) -> Result<(), StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_geti(&self, key: &str) -> Result<isize, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_swapi(&self, key: &str, value: isize) -> Result<isize, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_setb(&self, key: &str, value: bool) -> Result<(), StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_getb(&self, key: &str) -> Result<bool, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_swapb(&self, key: &str, value: bool) -> Result<bool, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_setr(&self, key: &str, value: f64) -> Result<(), StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_getr(&self, key: &str) -> Result<f64, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_swapr(&self, key: &str, value: f64) -> Result<f64, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_sets(&self, key: &str, value: String) -> Result<(), StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_gets(&self, key: &str) -> Result<String, StaticCoreError> {
+        unimplemented!()
+    }
+
+    fn param_swaps(&self, key: &str, value: String) -> Result<String, StaticCoreError> {
+        unimplemented!()
     }
 }
 
