@@ -77,4 +77,5 @@ fn main() {
     };
 
     core.run();
+    log::logger().flush();
 }
