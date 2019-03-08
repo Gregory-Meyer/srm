@@ -63,6 +63,15 @@ pub struct AdvertiseParams {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+pub enum ParamType {
+    SRM_INTEGER,
+    SRM_BOOLEAN,
+    SRM_REAL,
+    SRM_STRING,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct CoreVtbl {
     pub get_type: Option<unsafe extern "C" fn(*const c_void) -> StrView>,
 
