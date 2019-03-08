@@ -20,11 +20,23 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use libc::{c_char, ptrdiff_t};
+use super::Index;
+
+use libc::{c_char, c_void};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct StrView {
     pub data: *const c_char,
-    pub len: ptrdiff_t,
+    pub len: Index,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct String {
+    pub data: *mut c_char,
+    pub len: Index,
+    pub capacity: Index,
+    pub drop_arg: *mut c_void,
+    pub drop: Option<unsafe extern "C" fn(*mut c_char, Index, *mut c_void)>,
 }
