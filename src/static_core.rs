@@ -283,7 +283,11 @@ impl CoreInterface {
             Ok(Cow::Borrowed(key))
         } else if key.starts_with('~') {
             // resolve to the home key
-            Ok(Cow::Owned(format!(".{}{}", self.name(), &key[1..] /* all but the tilde */ )))
+            Ok(Cow::Owned(format!(
+                ".{}{}",
+                self.name(),
+                &key[1..] /* all but the tilde */
+            )))
         } else {
             // TODO: add namespace support
             Ok(Cow::Owned(format!(".{}", key)))
