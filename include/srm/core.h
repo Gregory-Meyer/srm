@@ -62,12 +62,12 @@ struct SrmAdvertiseParams {
     SrmStrView topic;
 };
 
-typedef enum SrmValueType {
-    SRM_VALUE_INTEGER,
-    SRM_VALUE_BOOLEAN,
-    SRM_VALUE_REAL,
-    SRM_VALUE_STRING
-} SrmValueType;
+typedef enum SrmParamType {
+    SRM_INTEGER,
+    SRM_BOOLEAN,
+    SRM_REAL,
+    SRM_STRING
+} SrmParamType;
 
 struct SrmCoreVtbl {
     SrmStrView (*get_type)(const void*);
