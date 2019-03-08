@@ -23,6 +23,8 @@
 use super::{Core, Error, ParamType, Publisher, Subscriber};
 use crate::{ffi, util};
 
+use std::{mem, ptr};
+
 use libc::{c_char, c_int, c_void};
 
 pub unsafe extern "C" fn get_type<C: Core>(impl_ptr: *const c_void) -> ffi::StrView {
@@ -196,69 +198,181 @@ pub unsafe extern "C" fn param_swapi<C: Core>(
     }
 }
 
-pub unsafe extern "C" fn param_setb<C: Core>(_: *const c_void, _: ffi::StrView, _: c_int) -> c_int {
-    unimplemented!()
+pub unsafe extern "C" fn param_setb<C: Core>(
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: c_int,
+) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).param_setb(util::ffi_to_str(key).unwrap(), value != 0) {
+        Ok(()) => 0,
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_getb<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: *mut c_int,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    result: *mut c_int,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_getb(util::ffi_to_str(key).unwrap()) {
+        Ok(v) => {
+            *result = v as c_int; // 0 is false, 1 is true when casting bool to integral types
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_swapb<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: c_int,
-    _: *mut c_int,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: c_int,
+    result: *mut c_int,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_swapb(util::ffi_to_str(key).unwrap(), value != 0) {
+        Ok(v) => {
+            *result = v as c_int;
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
-pub unsafe extern "C" fn param_setr<C: Core>(_: *const c_void, _: ffi::StrView, _: f64) -> c_int {
-    unimplemented!()
+pub unsafe extern "C" fn param_setr<C: Core>(
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: f64,
+) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).param_setr(util::ffi_to_str(key).unwrap(), value) {
+        Ok(()) => 0,
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_getr<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: *mut f64,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    result: *mut f64,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_getr(util::ffi_to_str(key).unwrap()) {
+        Ok(v) => {
+            *result = v;
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_swapr<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: f64,
-    _: *mut f64,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: f64,
+    result: *mut f64,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_swapr(util::ffi_to_str(key).unwrap(), value) {
+        Ok(v) => {
+            *result = v;
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_sets<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: ffi::StrView,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: ffi::StrView,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).param_sets(
+        util::ffi_to_str(key).unwrap(),
+        util::ffi_to_str(value).unwrap().to_string(),
+    ) {
+        Ok(()) => 0,
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_gets<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: *mut ffi::String,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    result: *mut ffi::String,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_gets(util::ffi_to_str(key).unwrap()) {
+        Ok(v) => {
+            *result = string_to_ffi(v);
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_swaps<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: ffi::StrView,
-    _: *mut ffi::String,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: ffi::StrView,
+    result: *mut ffi::String,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_swaps(
+        util::ffi_to_str(key).unwrap(),
+        util::ffi_to_str(value).unwrap().to_string(),
+    ) {
+        Ok(v) => {
+            *result = string_to_ffi(v);
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
+}
+
+unsafe extern "C" fn drop_string(data: *mut c_char, capacity: ffi::Index, _: *mut c_void) {
+    mem::drop(Vec::from_raw_parts(
+        data,
+        capacity as usize,
+        capacity as usize,
+    ));
+}
+
+unsafe fn string_to_ffi(mut s: String) -> ffi::String {
+    let data = s.as_mut_vec().as_mut_ptr() as *mut c_char;
+    let len = s.len() as ffi::Index;
+    let capacity = s.capacity() as ffi::Index;
+    mem::forget(s);
+
+    ffi::String {
+        data,
+        len,
+        capacity,
+        drop_arg: ptr::null_mut(),
+        drop: Some(drop_string),
+    }
 }
