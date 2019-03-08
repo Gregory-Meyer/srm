@@ -369,8 +369,6 @@ impl core::Core for CoreInterface {
     fn param_geti(&self, key: &str) -> Result<isize, StaticCoreError> {
         let resolved = self.resolve(key)?;
 
-        debug!("key = {}, resolved = {}", key, resolved);
-
         self.core
             .upgrade()
             .unwrap()
