@@ -3,6 +3,10 @@ name = "srm"
 version = "0.3.0"
 authors = ["Gregory Meyer <gregjm@umich.edu>"]
 edition = "2018"
+description = "Shared-object Robot Messaging"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Gregory-Meyer/srm"
 
 [dependencies]
 capnp = "^0.9.4"
