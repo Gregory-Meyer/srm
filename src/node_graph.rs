@@ -20,7 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use crate::static_core::{self, NodeError, StaticCore};
+use crate::static_core::{self, NodeError, Param, StaticCore};
 
 use std::{
     env,
@@ -34,6 +34,7 @@ use std::{
 
 use hashbrown::HashSet;
 use log::info;
+use regex::Regex;
 use serde::Deserialize;
 
 pub fn spawn_core() -> Result<Arc<StaticCore>, GraphError> {
@@ -58,7 +59,8 @@ pub fn spawn_core() -> Result<Arc<StaticCore>, GraphError> {
 #[derive(Deserialize)]
 struct NodeGraph {
     path: Vec<PathBuf>,
-    nodes: Vec<(String, String)>, // (name, type)
+    nodes: Vec<(String, String)>,         // (name, type)
+    params: Option<Vec<(String, Param)>>, // (key, value)
 }
 
 impl NodeGraph {
@@ -81,6 +83,16 @@ impl NodeGraph {
             }
         }
 
+        if let Some(ref params) = graph.params {
+            let resolved = Regex::new(r"^(?:\.[^.~]+)+$").unwrap();
+
+            for key in params.iter().map(|(k, _)| k) {
+                if !resolved.is_match(key) {
+                    return Err(GraphError::InvalidParamKey(key.clone()));
+                }
+            }
+        }
+
         Ok(graph)
     }
 
@@ -89,6 +101,12 @@ impl NodeGraph {
 
         for (name, tp) in self.nodes.into_iter() {
             static_core::add_node(&core, name, tp)?;
+        }
+
+        if let Some(params) = self.params {
+            for (key, value) in params.into_iter() {
+                core.param_set(key, value);
+            }
         }
 
         Ok(core)
@@ -102,6 +120,7 @@ pub enum GraphError {
     Deserialize(serde_yaml::Error),
     DuplicateName(String),
     Node(NodeError),
+    InvalidParamKey(String),
 }
 
 impl Error for GraphError {}
@@ -116,6 +135,7 @@ impl Display for GraphError {
                 write!(f, "input contained duplicate node name '{}'", n)
             }
             GraphError::Node(e) => write!(f, "couldn't initialize core from graph: {}", e),
+            GraphError::InvalidParamKey(n) => write!(f, "invalid param name '{}'", n),
         }
     }
 }
