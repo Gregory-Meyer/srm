@@ -54,12 +54,6 @@ public:
 
         [[gnu::unused]] const int res = core_.vptr->advertise(core_.impl_ptr, params, &publisher_);
         assert(res == 0);
-
-        const auto name_len = static_cast<int>(name_.len);
-        param_name_ = format(".%*.*s.param", name_len, name_len, name_.data);
-        [[gnu::unused]] const int param_res =
-            core_.vptr->param_seti(core_.impl_ptr, as_view(param_name_), 0);
-        assert(param_res == 0);
     }
 
     ~Publisher() {
@@ -75,10 +69,10 @@ public:
 
             std::ptrdiff_t value;
             [[gnu::unused]] const int param_res =
-                core_.vptr->param_geti(core_.impl_ptr, as_view(param_name_), &value);
+                core_.vptr->param_geti(core_.impl_ptr, "~.id"_sv, &value);
             assert(param_res == 0);
 
-            core_.vptr->log_info(core_.impl_ptr, as_view(format("%s = %td", param_name_.data(), value)));
+            core_.vptr->log_info(core_.impl_ptr, as_view(format("%s = %td", "~.id", value)));
         }
     }
 
@@ -104,7 +98,6 @@ private:
     SrmStrView name_;
     SrmPublisher publisher_;
     std::atomic<bool> keep_running_ = ATOMIC_VAR_INIT(true);
-    std::string param_name_;
 };
 
 namespace {
