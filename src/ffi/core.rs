@@ -63,6 +63,7 @@ pub struct AdvertiseParams {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
+#[allow(non_camel_case_types)]
 pub enum ParamType {
     SRM_INTEGER,
     SRM_BOOLEAN,
