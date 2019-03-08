@@ -194,7 +194,11 @@ pub unsafe extern "C" fn param_swapr<C: Core>(
     unimplemented!()
 }
 
-pub unsafe extern "C" fn param_sets<C: Core>(_: *const c_void, _: ffi::StrView, _: ffi::StrView) -> c_int {
+pub unsafe extern "C" fn param_sets<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: ffi::StrView,
+) -> c_int {
     unimplemented!()
 }
 
