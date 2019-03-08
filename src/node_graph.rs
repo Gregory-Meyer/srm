@@ -25,8 +25,8 @@ use crate::static_core::{self, NodeError, StaticCore};
 use std::{
     env,
     error::Error,
-    fs::File,
     fmt::{self, Display, Formatter},
+    fs::File,
     io::{self, Read},
     path::PathBuf,
     sync::Arc,
@@ -69,7 +69,8 @@ impl NodeGraph {
             .read_to_string(&mut buf)
             .map_err(|e| GraphError::Input(e))?;
 
-        let graph: NodeGraph = serde_yaml::from_str(&buf).map_err(|e| GraphError::Deserialize(e))?;
+        let graph: NodeGraph =
+            serde_yaml::from_str(&buf).map_err(|e| GraphError::Deserialize(e))?;
 
         {
             let mut names = HashSet::new();
@@ -111,7 +112,9 @@ impl Display for GraphError {
             GraphError::File(e) => write!(f, "couldn't open file for reading: {}", e),
             GraphError::Input(e) => write!(f, "couldn't read from file: {}", e),
             GraphError::Deserialize(e) => write!(f, "input wasn't valid YAML: {}", e),
-            GraphError::DuplicateName(n) => write!(f, "input contained duplicate node name '{}'", n),
+            GraphError::DuplicateName(n) => {
+                write!(f, "input contained duplicate node name '{}'", n)
+            }
             GraphError::Node(e) => write!(f, "couldn't initialize core from graph: {}", e),
         }
     }
