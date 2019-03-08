@@ -34,6 +34,7 @@ use std::{
     cell::UnsafeCell,
     error::Error,
     fmt::{self, Display, Formatter},
+    mem,
     path::PathBuf,
     sync::{Arc, Weak},
 };
@@ -49,31 +50,7 @@ pub struct StaticCore {
     plugin_loader: Mutex<PluginLoader>,
     channels: Mutex<HashMap<String, Weak<Channel>>>,
     nodes: RwLock<HashMap<String, Arc<CoreInterface>>>,
-}
-
-pub fn add_node(core: &Arc<StaticCore>, name: String, tp: String) -> Result<(), NodeError> {
-    let plugin = {
-        let mut plugin_loader = core.plugin_loader.lock();
-        plugin_loader.load(tp).map_err(|e| NodeError::Load(e))?
-    };
-
-    let interface = Arc::new(CoreInterface {
-        core: Arc::downgrade(&core),
-        node: UnsafeCell::new(Arc::new(Node::new(plugin, name.clone()))),
-    });
-
-    Arc::get_mut(unsafe { interface.node_mut() })
-        .unwrap()
-        .start(interface.clone())
-        .map_err(|e| NodeError::Start(e))?;
-
-    let was_present = {
-        let mut nodes = core.nodes.write();
-        nodes.insert(name, interface).is_some()
-    };
-    assert!(!was_present);
-
-    Ok(())
+    params: RwLock<HashMap<String, Arc<Mutex<Param>>>>,
 }
 
 impl StaticCore {
@@ -82,6 +59,7 @@ impl StaticCore {
             plugin_loader: Mutex::new(PluginLoader::new(paths)),
             channels: Mutex::new(HashMap::new()),
             nodes: RwLock::new(HashMap::new()),
+            params: RwLock::new(HashMap::new()),
         }
     }
 
@@ -107,7 +85,7 @@ impl StaticCore {
         }
     }
 
-    pub fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Subscriber, StaticCoreError> {
+    fn subscribe(&self, params: ffi::SubscribeParams) -> Result<Subscriber, StaticCoreError> {
         assert!(params.callback.is_some());
 
         let name = unsafe { util::ffi_to_str(params.topic) }
@@ -119,13 +97,76 @@ impl StaticCore {
             .ok_or(StaticCoreError::ChannelFull)
     }
 
-    pub fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
+    fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
         let name = unsafe { util::ffi_to_str(params.topic) }
             .unwrap()
             .to_string();
         let channel = self.get_channel(name, params.msg_type)?;
 
         Ok(Publisher { channel })
+    }
+
+    fn param_type(&self, key: &str) -> Option<ParamType> {
+        let param = {
+            let params = self.params.read();
+
+            if let Some(p) = params.get(key).map(|v| v.clone()) {
+                p
+            } else {
+                return None;
+            }
+        };
+
+        let guard = param.lock();
+
+        Some(guard.get_type())
+    }
+
+    fn param_set(&self, key: String, mut value: Param) -> Option<Param> {
+        let param = {
+            let mut params = self.params.write();
+
+            match params.entry(key) {
+                Entry::Occupied(o) => o.get().clone(),
+                Entry::Vacant(v) => {
+                    v.insert(Arc::new(Mutex::new(value)));
+
+                    return None;
+                }
+            }
+        };
+
+        let mut guard = param.lock();
+        mem::swap(&mut *guard, &mut value);
+
+        Some(value)
+    }
+
+    fn param_get(&self, key: &str) -> Option<Arc<Mutex<Param>>> {
+        let params = self.params.read();
+
+        params.get(key).map(|v| v.clone())
+    }
+
+    fn param_swap(&self, key: String, mut value: Param) -> Result<Param, StaticCoreError> {
+        let param = {
+            let mut params = self.params.write();
+
+            match params.entry(key.to_string()) {
+                Entry::Occupied(o) => o.get().clone(),
+                Entry::Vacant(_) => return Err(StaticCoreError::NoSuchParam),
+            }
+        };
+
+        let mut guard = param.lock();
+
+        if guard.get_type() == value.get_type() {
+            mem::swap(&mut *guard, &mut value);
+
+            Ok(value)
+        } else {
+            Err(StaticCoreError::ParamTypeDiffers)
+        }
     }
 
     fn get_channel(&self, name: String, msg_type: u64) -> Result<Arc<Channel>, StaticCoreError> {
@@ -161,6 +202,49 @@ impl StaticCore {
     }
 }
 
+pub fn add_node(core: &Arc<StaticCore>, name: String, tp: String) -> Result<(), NodeError> {
+    let plugin = {
+        let mut plugin_loader = core.plugin_loader.lock();
+        plugin_loader.load(tp).map_err(|e| NodeError::Load(e))?
+    };
+
+    let interface = Arc::new(CoreInterface {
+        core: Arc::downgrade(&core),
+        node: UnsafeCell::new(Arc::new(Node::new(plugin, name.clone()))),
+    });
+
+    Arc::get_mut(unsafe { interface.node_mut() })
+        .unwrap()
+        .start(interface.clone())
+        .map_err(|e| NodeError::Start(e))?;
+
+    let was_present = {
+        let mut nodes = core.nodes.write();
+        nodes.insert(name, interface).is_some()
+    };
+    assert!(!was_present);
+
+    Ok(())
+}
+
+enum Param {
+    Integer(isize),
+    Boolean(bool),
+    Real(f64),
+    String(String),
+}
+
+impl Param {
+    fn get_type(&self) -> ParamType {
+        match self {
+            Param::Integer(_) => ParamType::Integer,
+            Param::Boolean(_) => ParamType::Boolean,
+            Param::Real(_) => ParamType::Real,
+            Param::String(_) => ParamType::String,
+        }
+    }
+}
+
 struct CoreInterface {
     core: Weak<StaticCore>,
     node: UnsafeCell<Arc<Node>>,
@@ -186,6 +270,8 @@ impl core::Core for CoreInterface {
     type Subscriber = Subscriber;
 
     fn get_type(&self) -> &'static str {
+        assert!(self.core.upgrade().is_some());
+
         "srm::static_core::CoreInterface"
     }
 
@@ -196,6 +282,8 @@ impl core::Core for CoreInterface {
     }
 
     fn advertise(&self, params: ffi::AdvertiseParams) -> Result<Publisher, StaticCoreError> {
+        assert!(self.core.upgrade().is_some());
+
         self.core.upgrade().unwrap().advertise(params)
     }
 
@@ -230,55 +318,163 @@ impl core::Core for CoreInterface {
     }
 
     fn param_type(&self, key: &str) -> Result<ParamType, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_type(key)
+            .ok_or(StaticCoreError::NoSuchParam)
     }
 
     fn param_seti(&self, key: &str, value: isize) -> Result<(), StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_set(key.to_string(), Param::Integer(value))
+            .map(|_| ())
+            .ok_or_else(|| unreachable!())
     }
 
     fn param_geti(&self, key: &str) -> Result<isize, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_get(key)
+            .ok_or(StaticCoreError::NoSuchParam)
+            .and_then(|v| {
+                let guard = v.lock();
+
+                match *guard {
+                    Param::Integer(i) => Ok(i),
+                    _ => Err(StaticCoreError::ParamTypeDiffers),
+                }
+            })
     }
 
     fn param_swapi(&self, key: &str, value: isize) -> Result<isize, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_swap(key.to_string(), Param::Integer(value))
+            .map(|v| {
+                match v {
+                    Param::Integer(i) => i,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     fn param_setb(&self, key: &str, value: bool) -> Result<(), StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_set(key.to_string(), Param::Boolean(value))
+            .map(|_| ())
+            .ok_or_else(|| unreachable!())
     }
 
     fn param_getb(&self, key: &str) -> Result<bool, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_get(key)
+            .ok_or(StaticCoreError::NoSuchParam)
+            .and_then(|v| {
+                let guard = v.lock();
+
+                match *guard {
+                    Param::Boolean(i) => Ok(i),
+                    _ => Err(StaticCoreError::ParamTypeDiffers),
+                }
+            })
     }
 
     fn param_swapb(&self, key: &str, value: bool) -> Result<bool, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_swap(key.to_string(), Param::Boolean(value))
+            .map(|v| {
+                match v {
+                    Param::Boolean(i) => i,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     fn param_setr(&self, key: &str, value: f64) -> Result<(), StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_set(key.to_string(), Param::Real(value))
+            .map(|_| ())
+            .ok_or_else(|| unreachable!())
     }
 
     fn param_getr(&self, key: &str) -> Result<f64, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_get(key)
+            .ok_or(StaticCoreError::NoSuchParam)
+            .and_then(|v| {
+                let guard = v.lock();
+
+                match *guard {
+                    Param::Real(i) => Ok(i),
+                    _ => Err(StaticCoreError::ParamTypeDiffers),
+                }
+            })
     }
 
     fn param_swapr(&self, key: &str, value: f64) -> Result<f64, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_swap(key.to_string(), Param::Real(value))
+            .map(|v| {
+                match v {
+                    Param::Real(i) => i,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     fn param_sets(&self, key: &str, value: String) -> Result<(), StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_set(key.to_string(), Param::String(value))
+            .map(|_| ())
+            .ok_or_else(|| unreachable!())
     }
 
     fn param_gets(&self, key: &str) -> Result<String, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_get(key)
+            .ok_or(StaticCoreError::NoSuchParam)
+            .and_then(|v| {
+                let guard = v.lock();
+
+                match *guard {
+                    Param::String(ref i) => Ok(i.clone()),
+                    _ => Err(StaticCoreError::ParamTypeDiffers),
+                }
+            })
     }
 
     fn param_swaps(&self, key: &str, value: String) -> Result<String, StaticCoreError> {
-        unimplemented!()
+        self.core
+            .upgrade()
+            .unwrap()
+            .param_swap(key.to_string(), Param::String(value))
+            .map(|v| {
+                match v {
+                    Param::String(i) => i,
+                    _ => unreachable!(),
+                }
+            })
     }
 }
 
@@ -372,6 +568,8 @@ pub enum StaticCoreError {
     SubscriberDisconnected,
     ChannelFull,
     ChannelTypeDiffers,
+    NoSuchParam,
+    ParamTypeDiffers,
 }
 
 impl core::Error for StaticCoreError {
@@ -382,6 +580,8 @@ impl core::Error for StaticCoreError {
             3 => StaticCoreError::SubscriberDisconnected,
             4 => StaticCoreError::ChannelFull,
             5 => StaticCoreError::ChannelTypeDiffers,
+            6 => StaticCoreError::NoSuchParam,
+            7 => StaticCoreError::ParamTypeDiffers,
             x => panic!("unknown code to construct StaticCoreError from: {}", x),
         }
     }
@@ -397,6 +597,8 @@ impl core::Error for StaticCoreError {
             StaticCoreError::SubscriberDisconnected => "subscriber disconnected",
             StaticCoreError::ChannelFull => "channel has maximum subscribers",
             StaticCoreError::ChannelTypeDiffers => "channel exists, but has differing message type",
+            StaticCoreError::NoSuchParam => "no parameter with that name exists",
+            StaticCoreError::ParamTypeDiffers => "parameter exists, but has differing type",
         }
     }
 }
