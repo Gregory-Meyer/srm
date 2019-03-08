@@ -20,7 +20,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use super::{Core, Error, Publisher, Subscriber};
+use super::{Core, Error, ParamType, Publisher, Subscriber};
 use crate::{ffi, util};
 
 use libc::{c_char, c_int, c_void};
@@ -124,32 +124,76 @@ pub unsafe extern "C" fn log_trace<C: Core>(impl_ptr: *const c_void, msg: ffi::S
 }
 
 pub unsafe extern "C" fn param_type<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: *mut c_int,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    tp: *mut c_int,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!tp.is_null());
+
+    match (*(impl_ptr as *const C)).param_type(util::ffi_to_str(key).unwrap()) {
+        Ok(t) => {
+            *tp = match t {
+                ParamType::Integer => ffi::ParamType::SRM_INTEGER as c_int,
+                ParamType::Boolean => ffi::ParamType::SRM_BOOLEAN as c_int,
+                ParamType::Real => ffi::ParamType::SRM_REAL as c_int,
+                ParamType::String => ffi::ParamType::SRM_STRING as c_int,
+            };
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
-pub unsafe extern "C" fn param_seti<C: Core>(_: *const c_void, _: ffi::StrView, _: isize) -> c_int {
-    unimplemented!()
+pub unsafe extern "C" fn param_seti<C: Core>(
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: isize,
+) -> c_int {
+    assert!(!impl_ptr.is_null());
+
+    match (*(impl_ptr as *const C)).param_seti(util::ffi_to_str(key).unwrap(), value) {
+        Ok(()) => 0,
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_geti<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: *mut isize,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    result: *mut isize,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_geti(util::ffi_to_str(key).unwrap()) {
+        Ok(v) => {
+            *result = v;
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_swapi<C: Core>(
-    _: *const c_void,
-    _: ffi::StrView,
-    _: isize,
-    _: *mut isize,
+    impl_ptr: *const c_void,
+    key: ffi::StrView,
+    value: isize,
+    result: *mut isize,
 ) -> c_int {
-    unimplemented!()
+    assert!(!impl_ptr.is_null());
+    assert!(!result.is_null());
+
+    match (*(impl_ptr as *const C)).param_swapi(util::ffi_to_str(key).unwrap(), value) {
+        Ok(v) => {
+            *result = v;
+
+            0
+        }
+        Err(e) => e.as_code(),
+    }
 }
 
 pub unsafe extern "C" fn param_setb<C: Core>(_: *const c_void, _: ffi::StrView, _: c_int) -> c_int {
