@@ -326,12 +326,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_seti(&self, key: &str, value: isize) -> Result<(), StaticCoreError> {
-        self.core
+        let _ = self.core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::Integer(value))
-            .map(|_| ())
-            .ok_or_else(|| unreachable!())
+            .param_set(key.to_string(), Param::Integer(value));
+
+        Ok(())
     }
 
     fn param_geti(&self, key: &str) -> Result<isize, StaticCoreError> {
@@ -362,12 +362,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_setb(&self, key: &str, value: bool) -> Result<(), StaticCoreError> {
-        self.core
+        let _ = self.core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::Boolean(value))
-            .map(|_| ())
-            .ok_or_else(|| unreachable!())
+            .param_set(key.to_string(), Param::Boolean(value));
+
+        Ok(())
     }
 
     fn param_getb(&self, key: &str) -> Result<bool, StaticCoreError> {
@@ -398,12 +398,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_setr(&self, key: &str, value: f64) -> Result<(), StaticCoreError> {
-        self.core
+        let _ = self.core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::Real(value))
-            .map(|_| ())
-            .ok_or_else(|| unreachable!())
+            .param_set(key.to_string(), Param::Real(value));
+
+        Ok(())
     }
 
     fn param_getr(&self, key: &str) -> Result<f64, StaticCoreError> {
@@ -434,12 +434,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_sets(&self, key: &str, value: String) -> Result<(), StaticCoreError> {
-        self.core
+        let _ = self.core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::String(value))
-            .map(|_| ())
-            .ok_or_else(|| unreachable!())
+            .param_set(key.to_string(), Param::String(value));
+
+        Ok(())
     }
 
     fn param_gets(&self, key: &str) -> Result<String, StaticCoreError> {
