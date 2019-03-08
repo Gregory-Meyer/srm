@@ -47,7 +47,7 @@ mod util;
 
 use std::process;
 
-use log::error;
+use log::{error, info};
 
 fn main() {
     logging::init();
@@ -65,6 +65,7 @@ fn main() {
     let other_core = core.clone();
 
     match ctrlc::set_handler(move || {
+        info!("^C received, stopping...");
         other_core.stop();
     }) {
         Ok(_) => (),
