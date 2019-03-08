@@ -45,10 +45,9 @@ mod plugin_loader;
 mod static_core;
 mod util;
 
-use std::{path::PathBuf, process};
+use std::process;
 
 use log::error;
-use serde::Deserialize;
 
 fn main() {
     logging::init();
@@ -78,16 +77,4 @@ fn main() {
     };
 
     core.run();
-}
-
-#[derive(Deserialize)]
-struct Name(String);
-
-#[derive(Deserialize)]
-struct Type(String);
-
-#[derive(Deserialize)]
-struct NodeGraph {
-    path: Vec<PathBuf>,
-    nodes: Vec<(Name, Type)>,
 }
