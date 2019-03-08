@@ -8,3 +8,8 @@ nodes:
   - ["sub1", "subscriber"]
   - ["sub2", "subscriber"]
   - ["sub3", "subscriber"]
+params:
+  - [.pub0.id, 0]
+  - [.pub1.id, 1]
+  - [.pub2.id, 2]
+  - [.pub3.id, 3]
