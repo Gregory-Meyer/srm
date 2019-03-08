@@ -31,6 +31,7 @@ use super::{
 };
 
 use std::{
+    borrow::Cow,
     cell::UnsafeCell,
     error::Error,
     fmt::{self, Display, Formatter},
@@ -40,11 +41,13 @@ use std::{
 };
 
 use hashbrown::{hash_map::Entry, HashMap};
+use lazy_static::lazy_static;
 use libc::{c_int, c_void};
 use lock_api::RwLockUpgradableReadGuard;
 use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
+use regex::Regex;
 
 pub struct StaticCore {
     plugin_loader: Mutex<PluginLoader>,
@@ -262,6 +265,37 @@ impl CoreInterface {
     fn name(&self) -> &str {
         self.node().name()
     }
+
+    fn resolve<'a>(&self, key: &'a str) -> Result<Cow<'a, str>, StaticCoreError> {
+        if !self.validate(key) {
+            return Err(StaticCoreError::InvalidKey);
+        }
+
+        if key.starts_with('.') {
+            Ok(Cow::Borrowed(key))
+        } else if key.starts_with('~') { // resolve to the home key
+            Ok(Cow::Owned(format!(".{}.{}", self.name(), key)))
+        } else { // TODO: add namespace support
+            Ok(Cow::Owned(format!(".{}", key)))
+        }
+    }
+
+    fn validate(&self, key: &str) -> bool {
+        lazy_static! {
+            // matches against a valid path
+            // these are valid:
+            // foo.bar.baz
+            // ~.foo.bar.baz
+            // .foo.bar.baz
+            // these are not valid:
+            // .foo.bar.b~az
+            // foo..bar.baz
+            // foo.bar.baz.
+            static ref RE: Regex = Regex::new(r"^(\.|(?:~\.))?[^.~]+(?:\.[^.~]+)*$").unwrap();
+        }
+
+        RE.is_match(key)
+    }
 }
 
 impl core::Core for CoreInterface {
@@ -318,28 +352,34 @@ impl core::Core for CoreInterface {
     }
 
     fn param_type(&self, key: &str) -> Result<ParamType, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_type(key)
+            .param_type(&resolved)
             .ok_or(StaticCoreError::NoSuchParam)
     }
 
     fn param_seti(&self, key: &str, value: isize) -> Result<(), StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         let _ = self
             .core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::Integer(value));
+            .param_set(resolved.into_owned(), Param::Integer(value));
 
         Ok(())
     }
 
     fn param_geti(&self, key: &str) -> Result<isize, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_get(key)
+            .param_get(&resolved)
             .ok_or(StaticCoreError::NoSuchParam)
             .and_then(|v| {
                 let guard = v.lock();
@@ -352,10 +392,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_swapi(&self, key: &str, value: isize) -> Result<isize, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_swap(key.to_string(), Param::Integer(value))
+            .param_swap(resolved.into_owned(), Param::Integer(value))
             .map(|v| match v {
                 Param::Integer(i) => i,
                 _ => unreachable!(),
@@ -363,20 +405,24 @@ impl core::Core for CoreInterface {
     }
 
     fn param_setb(&self, key: &str, value: bool) -> Result<(), StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         let _ = self
             .core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::Boolean(value));
+            .param_set(resolved.into_owned(), Param::Boolean(value));
 
         Ok(())
     }
 
     fn param_getb(&self, key: &str) -> Result<bool, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_get(key)
+            .param_get(&resolved)
             .ok_or(StaticCoreError::NoSuchParam)
             .and_then(|v| {
                 let guard = v.lock();
@@ -389,10 +435,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_swapb(&self, key: &str, value: bool) -> Result<bool, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_swap(key.to_string(), Param::Boolean(value))
+            .param_swap(resolved.into_owned(), Param::Boolean(value))
             .map(|v| match v {
                 Param::Boolean(i) => i,
                 _ => unreachable!(),
@@ -400,20 +448,24 @@ impl core::Core for CoreInterface {
     }
 
     fn param_setr(&self, key: &str, value: f64) -> Result<(), StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         let _ = self
             .core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::Real(value));
+            .param_set(resolved.into_owned(), Param::Real(value));
 
         Ok(())
     }
 
     fn param_getr(&self, key: &str) -> Result<f64, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_get(key)
+            .param_get(&resolved)
             .ok_or(StaticCoreError::NoSuchParam)
             .and_then(|v| {
                 let guard = v.lock();
@@ -426,10 +478,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_swapr(&self, key: &str, value: f64) -> Result<f64, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_swap(key.to_string(), Param::Real(value))
+            .param_swap(resolved.into_owned(), Param::Real(value))
             .map(|v| match v {
                 Param::Real(i) => i,
                 _ => unreachable!(),
@@ -437,20 +491,24 @@ impl core::Core for CoreInterface {
     }
 
     fn param_sets(&self, key: &str, value: String) -> Result<(), StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         let _ = self
             .core
             .upgrade()
             .unwrap()
-            .param_set(key.to_string(), Param::String(value));
+            .param_set(resolved.into_owned(), Param::String(value));
 
         Ok(())
     }
 
     fn param_gets(&self, key: &str) -> Result<String, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_get(key)
+            .param_get(&resolved)
             .ok_or(StaticCoreError::NoSuchParam)
             .and_then(|v| {
                 let guard = v.lock();
@@ -463,10 +521,12 @@ impl core::Core for CoreInterface {
     }
 
     fn param_swaps(&self, key: &str, value: String) -> Result<String, StaticCoreError> {
+        let resolved = self.resolve(key)?;
+
         self.core
             .upgrade()
             .unwrap()
-            .param_swap(key.to_string(), Param::String(value))
+            .param_swap(resolved.into_owned(), Param::String(value))
             .map(|v| match v {
                 Param::String(i) => i,
                 _ => unreachable!(),
@@ -566,6 +626,7 @@ pub enum StaticCoreError {
     ChannelTypeDiffers,
     NoSuchParam,
     ParamTypeDiffers,
+    InvalidKey,
 }
 
 impl core::Error for StaticCoreError {
@@ -578,6 +639,7 @@ impl core::Error for StaticCoreError {
             5 => StaticCoreError::ChannelTypeDiffers,
             6 => StaticCoreError::NoSuchParam,
             7 => StaticCoreError::ParamTypeDiffers,
+            8 => StaticCoreError::InvalidKey,
             x => panic!("unknown code to construct StaticCoreError from: {}", x),
         }
     }
@@ -595,6 +657,7 @@ impl core::Error for StaticCoreError {
             StaticCoreError::ChannelTypeDiffers => "channel exists, but has differing message type",
             StaticCoreError::NoSuchParam => "no parameter with that name exists",
             StaticCoreError::ParamTypeDiffers => "parameter exists, but has differing type",
+            StaticCoreError::InvalidKey => "parameter key is invalid",
         }
     }
 }
