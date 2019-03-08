@@ -355,11 +355,9 @@ impl core::Core for CoreInterface {
             .upgrade()
             .unwrap()
             .param_swap(key.to_string(), Param::Integer(value))
-            .map(|v| {
-                match v {
-                    Param::Integer(i) => i,
-                    _ => unreachable!(),
-                }
+            .map(|v| match v {
+                Param::Integer(i) => i,
+                _ => unreachable!(),
             })
     }
 
@@ -393,11 +391,9 @@ impl core::Core for CoreInterface {
             .upgrade()
             .unwrap()
             .param_swap(key.to_string(), Param::Boolean(value))
-            .map(|v| {
-                match v {
-                    Param::Boolean(i) => i,
-                    _ => unreachable!(),
-                }
+            .map(|v| match v {
+                Param::Boolean(i) => i,
+                _ => unreachable!(),
             })
     }
 
@@ -431,11 +427,9 @@ impl core::Core for CoreInterface {
             .upgrade()
             .unwrap()
             .param_swap(key.to_string(), Param::Real(value))
-            .map(|v| {
-                match v {
-                    Param::Real(i) => i,
-                    _ => unreachable!(),
-                }
+            .map(|v| match v {
+                Param::Real(i) => i,
+                _ => unreachable!(),
             })
     }
 
@@ -469,11 +463,9 @@ impl core::Core for CoreInterface {
             .upgrade()
             .unwrap()
             .param_swap(key.to_string(), Param::String(value))
-            .map(|v| {
-                match v {
-                    Param::String(i) => i,
-                    _ => unreachable!(),
-                }
+            .map(|v| match v {
+                Param::String(i) => i,
+                _ => unreachable!(),
             })
     }
 }
