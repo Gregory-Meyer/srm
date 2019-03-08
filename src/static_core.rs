@@ -41,19 +41,20 @@ use std::{
 };
 
 use hashbrown::{hash_map::Entry, HashMap};
-use lazy_static::lazy_static;
 use libc::{c_int, c_void};
 use lock_api::RwLockUpgradableReadGuard;
 use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
 use regex::Regex;
+use serde::Deserialize;
 
 pub struct StaticCore {
     plugin_loader: Mutex<PluginLoader>,
     channels: Mutex<HashMap<String, Weak<Channel>>>,
     nodes: RwLock<HashMap<String, Arc<CoreInterface>>>,
     params: RwLock<HashMap<String, Arc<Mutex<Param>>>>,
+    valid_key_re: Regex,
 }
 
 impl StaticCore {
@@ -63,6 +64,7 @@ impl StaticCore {
             channels: Mutex::new(HashMap::new()),
             nodes: RwLock::new(HashMap::new()),
             params: RwLock::new(HashMap::new()),
+            valid_key_re: Regex::new(r"^(\.|(?:~\.))?[^.~]+(?:\.[^.~]+)*$").unwrap(),
         }
     }
 
@@ -125,7 +127,7 @@ impl StaticCore {
         Some(guard.get_type())
     }
 
-    fn param_set(&self, key: String, mut value: Param) -> Option<Param> {
+    pub fn param_set(&self, key: String, mut value: Param) -> Option<Param> {
         let param = {
             let mut params = self.params.write();
 
@@ -143,6 +145,10 @@ impl StaticCore {
         mem::swap(&mut *guard, &mut value);
 
         Some(value)
+    }
+
+    pub fn is_param_key_valid(&self, key: &str) -> bool {
+        self.valid_key_re.is_match(key)
     }
 
     fn param_get(&self, key: &str) -> Option<Arc<Mutex<Param>>> {
@@ -230,7 +236,9 @@ pub fn add_node(core: &Arc<StaticCore>, name: String, tp: String) -> Result<(), 
     Ok(())
 }
 
-enum Param {
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Param {
     Integer(isize),
     Boolean(bool),
     Real(f64),
@@ -238,7 +246,7 @@ enum Param {
 }
 
 impl Param {
-    fn get_type(&self) -> ParamType {
+    pub fn get_type(&self) -> ParamType {
         match self {
             Param::Integer(_) => ParamType::Integer,
             Param::Boolean(_) => ParamType::Boolean,
@@ -267,34 +275,19 @@ impl CoreInterface {
     }
 
     fn resolve<'a>(&self, key: &'a str) -> Result<Cow<'a, str>, StaticCoreError> {
-        if !self.validate(key) {
+        if !self.core.upgrade().unwrap().is_param_key_valid(key) {
             return Err(StaticCoreError::InvalidKey);
         }
 
         if key.starts_with('.') {
             Ok(Cow::Borrowed(key))
-        } else if key.starts_with('~') { // resolve to the home key
-            Ok(Cow::Owned(format!(".{}.{}", self.name(), key)))
-        } else { // TODO: add namespace support
+        } else if key.starts_with('~') {
+            // resolve to the home key
+            Ok(Cow::Owned(format!(".{}{}", self.name(), &key[1..] /* all but the tilde */ )))
+        } else {
+            // TODO: add namespace support
             Ok(Cow::Owned(format!(".{}", key)))
         }
-    }
-
-    fn validate(&self, key: &str) -> bool {
-        lazy_static! {
-            // matches against a valid path
-            // these are valid:
-            // foo.bar.baz
-            // ~.foo.bar.baz
-            // .foo.bar.baz
-            // these are not valid:
-            // .foo.bar.b~az
-            // foo..bar.baz
-            // foo.bar.baz.
-            static ref RE: Regex = Regex::new(r"^(\.|(?:~\.))?[^.~]+(?:\.[^.~]+)*$").unwrap();
-        }
-
-        RE.is_match(key)
     }
 }
 
@@ -375,6 +368,8 @@ impl core::Core for CoreInterface {
 
     fn param_geti(&self, key: &str) -> Result<isize, StaticCoreError> {
         let resolved = self.resolve(key)?;
+
+        debug!("key = {}, resolved = {}", key, resolved);
 
         self.core
             .upgrade()
