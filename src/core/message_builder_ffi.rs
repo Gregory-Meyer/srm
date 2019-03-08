@@ -25,7 +25,7 @@ use crate::{ffi, util};
 
 use libc::{c_int, c_void};
 
-pub unsafe extern "C" fn alloc_segment_entry<B: MessageBuilder>(
+pub unsafe extern "C" fn alloc_segment<B: MessageBuilder>(
     impl_ptr: *mut c_void,
     segment: *mut ffi::MsgSegment,
 ) -> c_int {

@@ -25,7 +25,7 @@ use crate::{ffi, util};
 
 use libc::{c_char, c_int, c_void};
 
-pub unsafe extern "C" fn get_type_entry<C: Core>(impl_ptr: *const c_void) -> ffi::StrView {
+pub unsafe extern "C" fn get_type<C: Core>(impl_ptr: *const c_void) -> ffi::StrView {
     assert!(!impl_ptr.is_null());
 
     let tp = (*(impl_ptr as *const C)).get_type();
@@ -33,7 +33,7 @@ pub unsafe extern "C" fn get_type_entry<C: Core>(impl_ptr: *const c_void) -> ffi
     util::str_to_ffi(tp)
 }
 
-pub unsafe extern "C" fn subscribe_entry<C: Core>(
+pub unsafe extern "C" fn subscribe<C: Core>(
     impl_ptr: *const c_void,
     params: ffi::SubscribeParams,
     subscriber: *mut ffi::Subscriber,
@@ -51,7 +51,7 @@ pub unsafe extern "C" fn subscribe_entry<C: Core>(
     }
 }
 
-pub unsafe extern "C" fn advertise_entry<C: Core>(
+pub unsafe extern "C" fn advertise<C: Core>(
     impl_ptr: *const c_void,
     params: ffi::AdvertiseParams,
     publisher: *mut ffi::Publisher,
@@ -78,10 +78,7 @@ pub unsafe extern "C" fn get_err_msg<C: Core>(_: *const c_void, err: c_int) -> f
     }
 }
 
-pub unsafe extern "C" fn log_error_entry<C: Core>(
-    impl_ptr: *const c_void,
-    msg: ffi::StrView,
-) -> c_int {
+pub unsafe extern "C" fn log_error<C: Core>(impl_ptr: *const c_void, msg: ffi::StrView) -> c_int {
     assert!(!impl_ptr.is_null());
 
     match (*(impl_ptr as *const C)).log_error(util::ffi_to_str(msg).unwrap()) {
@@ -90,10 +87,7 @@ pub unsafe extern "C" fn log_error_entry<C: Core>(
     }
 }
 
-pub unsafe extern "C" fn log_warn_entry<C: Core>(
-    impl_ptr: *const c_void,
-    msg: ffi::StrView,
-) -> c_int {
+pub unsafe extern "C" fn log_warn<C: Core>(impl_ptr: *const c_void, msg: ffi::StrView) -> c_int {
     assert!(!impl_ptr.is_null());
 
     match (*(impl_ptr as *const C)).log_warn(util::ffi_to_str(msg).unwrap()) {
@@ -102,10 +96,7 @@ pub unsafe extern "C" fn log_warn_entry<C: Core>(
     }
 }
 
-pub unsafe extern "C" fn log_info_entry<C: Core>(
-    impl_ptr: *const c_void,
-    msg: ffi::StrView,
-) -> c_int {
+pub unsafe extern "C" fn log_info<C: Core>(impl_ptr: *const c_void, msg: ffi::StrView) -> c_int {
     assert!(!impl_ptr.is_null());
 
     match (*(impl_ptr as *const C)).log_info(util::ffi_to_str(msg).unwrap()) {
@@ -114,10 +105,7 @@ pub unsafe extern "C" fn log_info_entry<C: Core>(
     }
 }
 
-pub unsafe extern "C" fn log_debug_entry<C: Core>(
-    impl_ptr: *const c_void,
-    msg: ffi::StrView,
-) -> c_int {
+pub unsafe extern "C" fn log_debug<C: Core>(impl_ptr: *const c_void, msg: ffi::StrView) -> c_int {
     assert!(!impl_ptr.is_null());
 
     match (*(impl_ptr as *const C)).log_debug(util::ffi_to_str(msg).unwrap()) {
@@ -126,14 +114,103 @@ pub unsafe extern "C" fn log_debug_entry<C: Core>(
     }
 }
 
-pub unsafe extern "C" fn log_trace_entry<C: Core>(
-    impl_ptr: *const c_void,
-    msg: ffi::StrView,
-) -> c_int {
+pub unsafe extern "C" fn log_trace<C: Core>(impl_ptr: *const c_void, msg: ffi::StrView) -> c_int {
     assert!(!impl_ptr.is_null());
 
     match (*(impl_ptr as *const C)).log_trace(util::ffi_to_str(msg).unwrap()) {
         Ok(()) => 0,
         Err(e) => e.as_code(),
     }
+}
+
+pub unsafe extern "C" fn param_type<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: *mut c_int,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_seti<C: Core>(_: *const c_void, _: ffi::StrView, _: isize) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_geti<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: *mut isize,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_swapi<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: isize,
+    _: *mut isize,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_setb<C: Core>(_: *const c_void, _: ffi::StrView, _: c_int) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_getb<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: *mut c_int,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_swapb<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: c_int,
+    _: *mut c_int,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_setr<C: Core>(_: *const c_void, _: ffi::StrView, _: f64) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_getr<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: *mut f64,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_swapr<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: f64,
+    _: *mut f64,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_sets<C: Core>(_: *const c_void, _: ffi::StrView, _: ffi::StrView) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_gets<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: *mut ffi::String,
+) -> c_int {
+    unimplemented!()
+}
+
+pub unsafe extern "C" fn param_swaps<C: Core>(
+    _: *const c_void,
+    _: ffi::StrView,
+    _: ffi::StrView,
+    _: *mut ffi::String,
+) -> c_int {
+    unimplemented!()
 }

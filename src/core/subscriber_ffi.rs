@@ -27,9 +27,7 @@ use std::mem;
 
 use libc::{c_int, c_void};
 
-pub unsafe extern "C" fn get_channel_name_entry<S: Subscriber>(
-    impl_ptr: *const c_void,
-) -> ffi::StrView {
+pub unsafe extern "C" fn get_channel_name<S: Subscriber>(impl_ptr: *const c_void) -> ffi::StrView {
     assert!(!impl_ptr.is_null());
 
     let name = (*(impl_ptr as *const S)).get_channel_name();
@@ -37,13 +35,13 @@ pub unsafe extern "C" fn get_channel_name_entry<S: Subscriber>(
     util::str_to_ffi(name)
 }
 
-pub unsafe extern "C" fn get_channel_type_entry<S: Subscriber>(impl_ptr: *const c_void) -> u64 {
+pub unsafe extern "C" fn get_channel_type<S: Subscriber>(impl_ptr: *const c_void) -> u64 {
     assert!(!impl_ptr.is_null());
 
     (*(impl_ptr as *const S)).get_channel_type()
 }
 
-pub unsafe extern "C" fn disconnect_entry<S: Subscriber>(impl_ptr: *mut c_void) -> c_int {
+pub unsafe extern "C" fn disconnect<S: Subscriber>(impl_ptr: *mut c_void) -> c_int {
     assert!(!impl_ptr.is_null());
 
     mem::drop(Box::from_raw(impl_ptr as *mut S));

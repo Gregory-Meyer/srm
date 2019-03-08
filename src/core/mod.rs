@@ -101,15 +101,36 @@ macro_rules! srm_core_base_impl {
             use libc::c_void;
 
             const VTBL: ffi::CoreVtbl = ffi::CoreVtbl{
-                get_type: Some($crate::core::core_ffi::get_type_entry::<$x>),
-                subscribe: Some($crate::core::core_ffi::subscribe_entry::<$x>),
-                advertise: Some($crate::core::core_ffi::advertise_entry::<$x>),
+                get_type: Some($crate::core::core_ffi::get_type::<$x>),
+
+                subscribe: Some($crate::core::core_ffi::subscribe::<$x>),
+                advertise: Some($crate::core::core_ffi::advertise::<$x>),
+
                 get_err_msg: Some($crate::core::core_ffi::get_err_msg::<$x>),
-                log_error: Some($crate::core::core_ffi::log_error_entry::<$x>),
-                log_warn: Some($crate::core::core_ffi::log_warn_entry::<$x>),
-                log_info: Some($crate::core::core_ffi::log_info_entry::<$x>),
-                log_debug: Some($crate::core::core_ffi::log_debug_entry::<$x>),
-                log_trace: Some($crate::core::core_ffi::log_trace_entry::<$x>),
+
+                log_error: Some($crate::core::core_ffi::log_error::<$x>),
+                log_warn: Some($crate::core::core_ffi::log_warn::<$x>),
+                log_info: Some($crate::core::core_ffi::log_info::<$x>),
+                log_debug: Some($crate::core::core_ffi::log_debug::<$x>),
+                log_trace: Some($crate::core::core_ffi::log_trace::<$x>),
+
+                param_type: Some($crate::core::core_ffi::param_type::<$x>),
+
+                param_seti: Some($crate::core::core_ffi::param_seti::<$x>),
+                param_geti: Some($crate::core::core_ffi::param_geti::<$x>),
+                param_swapi: Some($crate::core::core_ffi::param_swapi::<$x>),
+
+                param_setb: Some($crate::core::core_ffi::param_setb::<$x>),
+                param_getb: Some($crate::core::core_ffi::param_getb::<$x>),
+                param_swapb: Some($crate::core::core_ffi::param_swapb::<$x>),
+
+                param_setr: Some($crate::core::core_ffi::param_setr::<$x>),
+                param_getr: Some($crate::core::core_ffi::param_getr::<$x>),
+                param_swapr: Some($crate::core::core_ffi::param_swapr::<$x>),
+
+                param_sets: Some($crate::core::core_ffi::param_sets::<$x>),
+                param_gets: Some($crate::core::core_ffi::param_gets::<$x>),
+                param_swaps: Some($crate::core::core_ffi::param_swaps::<$x>),
             };
 
             ffi::Core{ impl_ptr: self as *const $x as *const c_void,
@@ -125,9 +146,9 @@ macro_rules! srm_subscriber_impl {
             use libc::c_void;
 
             const VTBL: ffi::SubscriberVtbl = ffi::SubscriberVtbl{
-                get_channel_name: Some($crate::core::subscriber_ffi::get_channel_name_entry::<$x>),
-                get_channel_type: Some($crate::core::subscriber_ffi::get_channel_type_entry::<$x>),
-                disconnect: Some($crate::core::subscriber_ffi::disconnect_entry::<$x>),
+                get_channel_name: Some($crate::core::subscriber_ffi::get_channel_name::<$x>),
+                get_channel_type: Some($crate::core::subscriber_ffi::get_channel_type::<$x>),
+                disconnect: Some($crate::core::subscriber_ffi::disconnect::<$x>),
                 get_err_msg: Some($crate::core::subscriber_ffi::get_err_msg::<$x>),
             };
 
@@ -144,10 +165,10 @@ macro_rules! srm_publisher_impl {
             use libc::c_void;
 
             const VTBL: ffi::PublisherVtbl = ffi::PublisherVtbl{
-                get_channel_name: Some($crate::core::publisher_ffi::get_channel_name_entry::<$x>),
-                get_channel_type: Some($crate::core::publisher_ffi::get_channel_type_entry::<$x>),
-                disconnect: Some($crate::core::publisher_ffi::disconnect_entry::<$x>),
-                publish: Some($crate::core::publisher_ffi::publish_entry::<$x>),
+                get_channel_name: Some($crate::core::publisher_ffi::get_channel_name::<$x>),
+                get_channel_type: Some($crate::core::publisher_ffi::get_channel_type::<$x>),
+                disconnect: Some($crate::core::publisher_ffi::disconnect::<$x>),
+                publish: Some($crate::core::publisher_ffi::publish::<$x>),
                 get_err_msg: Some($crate::core::publisher_ffi::get_err_msg::<$x>),
             };
 
@@ -166,7 +187,7 @@ macro_rules! srm_message_builder_impl {
             use libc::c_void;
 
             const VTBL: ffi::MsgBuilderVtbl = ffi::MsgBuilderVtbl{
-                alloc_segment: Some($crate::core::message_builder_ffi::alloc_segment_entry::<$x>),
+                alloc_segment: Some($crate::core::message_builder_ffi::alloc_segment::<$x>),
                 get_err_msg: Some($crate::core::message_builder_ffi::get_err_msg::<$x>),
             };
 
