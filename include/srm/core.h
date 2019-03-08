@@ -93,13 +93,13 @@ struct SrmCoreVtbl {
     int (*param_getb)(const void*, SrmStrView, int*);
     int (*param_swapb)(const void*, SrmStrView, int, int*);
 
-    int (*param_setr)(const void*, double);
-    int (*param_getr)(const void*, double*);
-    int (*param_swapr)(const void*, double, double*);
+    int (*param_setr)(const void*, SrmStrView, double);
+    int (*param_getr)(const void*, SrmStrView, double*);
+    int (*param_swapr)(const void*, SrmStrView, double, double*);
 
-    int (*param_sets)(const void*, SrmStrView);
-    int (*param_gets)(const void*, SrmString*);
-    int (*param_swaps)(const void*, SrmStrView, SrmString*);
+    int (*param_sets)(const void*, SrmStrView, SrmStrView);
+    int (*param_gets)(const void*, SrmStrView, SrmString*);
+    int (*param_swaps)(const void*, SrmStrView, SrmStrView, SrmString*);
 };
 
 struct SrmSubscriberVtbl {
