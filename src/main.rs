@@ -24,12 +24,14 @@ extern crate capnp;
 extern crate ctrlc;
 extern crate hashbrown;
 extern crate humantime;
+extern crate lazy_static;
 extern crate libc;
 extern crate libloading;
 extern crate lock_api;
 extern crate log;
 extern crate parking_lot;
 extern crate rayon;
+extern crate regex;
 extern crate serde;
 extern crate serde_yaml;
 
