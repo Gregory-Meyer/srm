@@ -27,6 +27,7 @@ use std::error;
 use capnp::message::Allocator;
 use libc::c_int;
 
+#[derive(PartialEq, Eq, Debug)]
 pub enum ParamType {
     Integer,
     Boolean,
