@@ -24,7 +24,6 @@ extern crate capnp;
 extern crate ctrlc;
 extern crate hashbrown;
 extern crate humantime;
-extern crate lazy_static;
 extern crate libc;
 extern crate libloading;
 extern crate lock_api;
