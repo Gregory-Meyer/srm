@@ -326,7 +326,8 @@ impl core::Core for CoreInterface {
     }
 
     fn param_seti(&self, key: &str, value: isize) -> Result<(), StaticCoreError> {
-        let _ = self.core
+        let _ = self
+            .core
             .upgrade()
             .unwrap()
             .param_set(key.to_string(), Param::Integer(value));
@@ -362,7 +363,8 @@ impl core::Core for CoreInterface {
     }
 
     fn param_setb(&self, key: &str, value: bool) -> Result<(), StaticCoreError> {
-        let _ = self.core
+        let _ = self
+            .core
             .upgrade()
             .unwrap()
             .param_set(key.to_string(), Param::Boolean(value));
@@ -398,7 +400,8 @@ impl core::Core for CoreInterface {
     }
 
     fn param_setr(&self, key: &str, value: f64) -> Result<(), StaticCoreError> {
-        let _ = self.core
+        let _ = self
+            .core
             .upgrade()
             .unwrap()
             .param_set(key.to_string(), Param::Real(value));
@@ -434,7 +437,8 @@ impl core::Core for CoreInterface {
     }
 
     fn param_sets(&self, key: &str, value: String) -> Result<(), StaticCoreError> {
-        let _ = self.core
+        let _ = self
+            .core
             .upgrade()
             .unwrap()
             .param_set(key.to_string(), Param::String(value));
