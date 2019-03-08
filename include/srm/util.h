@@ -36,6 +36,14 @@ struct SrmStrView {
     SrmIndex len;
 };
 
+struct SrmString {
+    char *data;
+    SrmIndex len;
+    SrmIndex capacity;
+    void *drop_arg;
+    void (*drop)(char*, SrmIndex, void*);
+};
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
